@@ -69,7 +69,7 @@ Run AmpliTrim after adapter and primer removal and before `filterAndTrim`.
 
 ## Arguments
 
-Three are required (`--input-dir`, `--work-dir`, `--out-dir`) and two are optional (`--its`, `--verbose`); see the [README](../README.md#arguments).
+Three are required (`--input-dir`, `--work-dir`, `--out-dir`) and two are optional (`--its`, `--verbose`); see the [README](../README.md#options).
 
 `--work-dir` holds intermediate files (the subsample, trimmed and merged reads) and can be deleted afterwards. It is required, and it has no default inside the output folder, for a reason that applies to Windows. The Windows build of vsearch opens files by their names in the system's ANSI code page. Accented letters from your code page work, and any other character is refused with a clear message. Use a plain folder such as `C:\amplitrim_work`.
 
@@ -82,6 +82,8 @@ Three are required (`--input-dir`, `--work-dir`, `--out-dir`) and two are option
 | `truncLenF`, `truncLenR` | Searched on your reads (see [How it works](#how-it-works)) |
 | `maxEE` | Per read, the limit that covers three quarters of the reads at the recommended cut, never below 2 and never above 5 ([how maxEE is chosen](#how-maxee-is-chosen)) |
 | `minOverlap`, `maxMismatch` | `12` and `0`, DADA2's defaults for `mergePairs` |
+
+These are DADA2 settings, for DADA2 in R or in QIIME 2's DADA2 plugin. QIIME 2 also offers Deblur, which is a different method: it takes single or already merged reads, trims them all to one length (`--p-trim-length`), and has no `truncLenF`, `truncLenR` or `maxEE`, because its quality filtering is a separate step. AmpliTrim's recommendations therefore do not apply to Deblur, and we have not tested AmpliTrim with it. The amplicon lengths in the report may help you choose a trim length, but AmpliTrim does not recommend one. See the QIIME 2 documentation for Deblur.
 
 ## Output
 
