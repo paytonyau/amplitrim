@@ -46,6 +46,8 @@ def test_noisy_reverse_reads_get_a_looser_reverse_limit_and_a_forward_limit_that
     write_outputs(res, tmp_path / "o")
     report = (tmp_path / "o" / "REPORT.md").read_text()
     assert "not DADA2's default of 2" in report and "75th percentile" in report and "never above 5" in report and "chosen after seeing the validation data" in report
+    assert "merged about as many pairs as relaxing to (2,5), and fewer on three of them" in report
+    assert "never above 5). Only 40% of the read pairs pass at maxEE 2" in report                              # a sentence starts with a capital
     summary = json.loads((tmp_path / "o" / "summary.json").read_text())
     rule = summary["maxEE_rule"]
     assert rule["relaxed"] is True and rule["percentile"] == 0.75 and rule["cap"] == 5 and rule["pass_rate_at_maxEE_2"] == pytest.approx(res.pass_rate_default)
@@ -58,7 +60,9 @@ def test_reads_where_nothing_passes_maxEE_2_are_measured_at_the_shortest_cut_tha
     res = pipeline.run(pipeline.Settings(input_dir=dead, work_dir=tmp_path / "w"))
     assert res.relaxed and res.cfg.max_ee == (2.0, 4.0) and res.recommendation is not None and res.pass_rate_default is None
     assert sum(res.rule["cut"]) == res.floor                                  # no recommendation at maxEE 2, so the rule looked at the cut of the coverage floor
-    assert any("none of the read pairs pass" in ln for ln in screen_summary(res, tmp_path / "R.md"))
+    assert any("none of the read pairs pass" in ln for ln in screen_summary(res, tmp_path / "R.md"))         # inside a sentence, after a colon
+    write_outputs(res, tmp_path / "o")
+    assert "never above 5). None of the read pairs pass at maxEE 2" in (tmp_path / "o" / "REPORT.md").read_text()
 
 
 def test_the_cap_of_5_limits_a_very_noisy_reverse_read(tmp_path):

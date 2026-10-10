@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use AmpliTrim, please cite it as below."
-title: "AmpliTrim: choosing DADA2 truncation lengths from the reads themselves"
+title: "AmpliTrim: choosing DADA2 truncation lengths and maxEE from the reads themselves"
 type: software
 version: "0.1.0"
 license: MIT
 repository-code: "https://github.com/paytonyau/amplitrim"
 abstract: >-
-  AmpliTrim recommends DADA2 truncLenF and truncLenR for paired-end amplicon reads and tests candidate settings on the user's own reads: it replicates DADA2's
-  quality filter from the quality scores, sets a coverage floor from the amplicon lengths, and estimates the merge yield with vsearch.
+  AmpliTrim recommends DADA2 truncLenF, truncLenR and maxEE for paired-end amplicon reads and tests candidate settings on the user's own reads: it replicates DADA2's
+  quality filter from the quality scores, sets a coverage floor from the amplicon lengths, estimates the merge yield with vsearch, and chooses maxEE per read from the reads' expected errors.
 authors:
   - family-names: "Yau"
     given-names: "Payton (Tung On)"

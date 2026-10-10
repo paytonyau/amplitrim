@@ -1,12 +1,12 @@
 [project]
 name = "amplitrim"
 version = "0.1.0"
-description = "Recommends DADA2 truncLenF/truncLenR for paired-end amplicon reads by testing candidate settings on your own reads."
+description = "Recommends DADA2 truncLenF, truncLenR and maxEE for paired-end amplicon reads by testing candidate settings on your own reads."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Payton Yau" }]
-keywords = ["DADA2", "amplicon sequencing", "16S rRNA", "ITS", "paired-end reads", "truncLen"]
+keywords = ["DADA2", "amplicon sequencing", "16S rRNA", "ITS", "paired-end reads", "truncLen", "maxEE"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",

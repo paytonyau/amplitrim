@@ -364,3 +364,21 @@ def test_summary_json_gives_the_forward_and_reverse_maxEE_as_numbers_whatever_wa
     rec = json.loads((tmp_path / "two" / "summary.json").read_text())["recommended"]
     assert rec["maxEE"] == [2.0, 5.0] and (rec["maxEE_f"], rec["maxEE_r"]) == (2.0, 5.0)
     assert isinstance(rec["maxEE_f"], float) and isinstance(rec["maxEE_r"], float)
+
+
+def test_the_coverage_section_points_to_the_python_interface_and_not_to_a_command_line_option():
+    """The released command line has no --allow-unmergeable; the report must not tell the user to use it."""
+    from types import SimpleNamespace
+    from amplitrim.report import _coverage_section
+    def row(level, total, yield_est, current=False):
+        return {"level": level, "current": current, "longest": 500 - int(level * 1000), "total": total, "trim_f": total // 2, "trim_r": total - total // 2, "pass_rate": 0.9, "yield_est": yield_est,
+                "ee_f": 0.5, "ee_r": 0.8, "lost": level}
+    res = SimpleNamespace(recommendation=SimpleNamespace(max_mergeable_insert=500),
+                          coverage_search=[row(0.002, 520, 0.50, True), row(0.01, 480, 0.60), row(0.05, 470, 0.61)])
+    text = "\n".join(_coverage_section(res))
+    assert "would allow a total of 470 nt instead of 520" in text or "would allow a total of 480 nt instead of 520" in text
+    assert "set `max_unmergeable=" in text and "the command line does not offer it" in text
+    assert "--allow-unmergeable" not in text and "run again with" not in text
+    flat = SimpleNamespace(recommendation=SimpleNamespace(max_mergeable_insert=500), coverage_search=[row(0.002, 520, 0.50, True), row(0.01, 515, 0.505)])
+    assert "barely improve the yield" in "\n".join(_coverage_section(flat))                                  # the other branch is unchanged
+

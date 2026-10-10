@@ -11,6 +11,8 @@ pip install .      # Python 3.9 or later; vsearch must also be on your PATH
 amplitrim --input-dir reads/ --work-dir work --out-dir report
 ```
 
+Example output (from simulated reads; your numbers will differ):
+
 ```
 AmpliTrim 0.1.0
 Analysing reads...
@@ -25,6 +27,15 @@ Report: report/REPORT.md
 ```
 
 Open `report/REPORT.md`: the settings with copy-paste snippets for DADA2 (R) and QIIME 2, what to expect, and anything worth checking.
+
+To try it without your own data, make a small simulated dataset (from a clone of this repository; the generator needs numpy) and run AmpliTrim on it:
+
+```bash
+python tests/simulate.py demo --samples 2 --pairs 1500 --seed 11
+amplitrim --input-dir demo/primer_trimmed --work-dir work --out-dir out
+```
+
+The reads are simulated, not real, so use them to see what the report looks like, not to judge how well the tool works. The recommended lengths should cover the longest simulated amplicon (434 nt), `maxEE` should stay at 2, and more than 70% of the pairs should be expected to pass and merge.
 
 ## What you need
 
@@ -53,13 +64,14 @@ That is all: AmpliTrim chooses the rest, including `maxEE`.
 
 ## What it recommends
 
-| Setting | How it is chosen |
-|---|---|
-| `truncLenF`, `truncLenR` | Searched on your reads: the shortest total length that can merge your longest amplicons, split between the two reads where quality allows, with the best merge yield |
-| `maxEE` | Per read, the limit that covers three quarters of the reads at the recommended cut: `int` of the 75th percentile of their expected errors, plus 1; never below 2 (DADA2's default) and never above 5. Clean reads stay at 2 |
-| `minOverlap` | `12` (DADA2's default) |
+| Setting | How it is chosen | Evidence ([details](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md)) |
+|---|---|---|
+| `truncLenF`, `truncLenR` | Searched on your reads: the shortest total length that can merge your longest amplicons, split between the two reads where quality allows, with the best merge yield | Merges as many pairs as FIGARO's at the same `maxEE`; within 0.3 points of the best setting of a DADA2 grid on five datasets in the development rounds; soil V4 is the exception, 4.7 points below the best cell ([truncation](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#truncation-lengths-trunclenf-trunclenr)) |
+| `maxEE` | Per read, the limit that covers three quarters of the reads at the recommended cut: `int` of the 75th percentile of their expected errors, plus 1; never below 2 (DADA2's default) and never above 5. Clean reads stay at 2 | **The least tested part:** above the default on all five datasets where it relaxes, about level with `2,5` on average, and it did not meet its adoption criteria ([maxEE](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#maxee)) |
+| `minOverlap` | `12` (DADA2's default) | Merging collapses below the total this implies ([truncation](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#truncation-lengths-trunclenf-trunclenr)) |
+| ITS (`--its`) | No fixed truncation length; `maxEE` 2 | One dataset: the filter is replicated exactly, the merging estimate is optimistic ([ITS](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#its---its)) |
 
-The `maxEE` rule is the least tested part: the percentile and the cap were set after seeing the validation data, it has not been tested on independent data, and its effect on DADA2's results has not yet been confirmed end to end ([what it does and how far to trust it](docs/usage.md#how-maxee-is-chosen)).
+How the `maxEE` rule was chosen and how far to trust it: [user guide](docs/usage.md#how-maxee-is-chosen).
 
 ## Output
 
@@ -104,16 +116,19 @@ More in the [user guide](docs/usage.md#how-it-works).
 ## Limitations
 
 - **The yield is optimistic: use it to compare settings, not as the retained fraction.** It is measured with vsearch before DADA2 denoises the reads, so DADA2 can keep fewer. Run DADA2 once with the recommended settings to confirm.
+- **The split between the two reads can cost on some data.** Among near-ties AmpliTrim prefers the balanced split. On soil V4 a split that gave the forward read more of the same total merged 4.7 points more in DADA2; on the other datasets tested the gain was at most 0.5 points ([details](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#truncation-lengths-trunclenf-trunclenr)).
 - **Only quality and mergeability are assessed**, not taxonomic accuracy.
-- **A tail of much longer amplicons than the rest** (for example non-target 18S amplified by the same primers) can force long, noisy reads on the whole dataset: AmpliTrim sets aside only the longest 0.2% of amplicons and has no option to change that ([guide](docs/usage.md#limitations)).
+- **A tail of much longer amplicons than the rest** (for example non-target 18S amplified by the same primers) can force long, noisy reads on the whole dataset. AmpliTrim sets aside only the longest 0.2% of amplicons, and it has no option to change this ([guide](docs/usage.md#limitations)).
 - **Tested on Illumina MiSeq and NovaSeq data only.**
 
 ## Validation
 
-Tested against real DADA2 runs on 12 public datasets (six mock communities and six real datasets: V1-V2, V1-V3, V3-V4, V4, V4-V5, V4-V6 and ITS), with the criteria written down before each run. AmpliTrim predicted the share of pairs passing DADA2's filter to within 0.8 points on all 12; its truncation merged as many pairs as FIGARO's at the same `maxEE` (equivalent, not better); the yield estimate overshoots, mostly by 7 points or less (up to 32 on a soil study). The scripts, the pre-set criteria and the write-up are in the [validation archive](https://github.com/paytonyau/amplitrim-validation).
+Tested against real DADA2 runs on 12 public datasets (six mock communities and six real datasets, ITS among them), with the criteria written down before each run. AmpliTrim predicted the share of pairs passing DADA2's filter to within 0.8 points on all 12 datasets. Its truncation merged as many pairs as FIGARO's at the same `maxEE` (equivalent, not better). The yield estimate is optimistic: mostly by 7 points or less, and by up to 32 points on a soil study. The `maxEE` rule did not meet its adoption criteria, and we keep it as a trade-off that we state openly. What held, what did not and the limits are on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md). The scripts, the pre-set criteria and the write-up are in the same [archive](https://github.com/paytonyau/amplitrim-validation).
 
 ## Citation and licence
 
 MIT (see `LICENSE`). Please cite AmpliTrim (see `CITATION.cff`, or the repository's *Cite this repository* button) and [vsearch](https://github.com/torognes/vsearch), whose own page gives the reference to cite.
 
 **Third-party software.** AmpliTrim runs vsearch (dual-licensed, GPLv3 and BSD-2-Clause) as a separate program. Its source code is not part of this repository, it is not distributed with it, and its own licence governs its use and distribution. The Python libraries AmpliTrim imports (numpy and matplotlib) are installed separately under their own licences.
+
+Bug reports, questions and contributions: see [`CONTRIBUTING.md`](CONTRIBUTING.md).

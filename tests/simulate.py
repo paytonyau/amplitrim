@@ -128,8 +128,13 @@ def write_dataset(out_dir: Path, n_samples=3, pairs_per_sample=10000, seed=7):
 
 
 if __name__ == "__main__":
-    import sys
-    target = Path(sys.argv[1] if len(sys.argv) > 1 else "sim_data")
-    taxa = write_dataset(target)
-    print("insert lengths per taxon:", [len(t) for t in taxa])
-    print("written to", target)
+    import argparse
+    ap = argparse.ArgumentParser(description="Write a small simulated 16S dataset, with the primers already removed, to try AmpliTrim on. The reads are simulated, not real.")
+    ap.add_argument("out", nargs="?", default="sim_data", help="folder to write (default: sim_data)")
+    ap.add_argument("--samples", type=int, default=3, help="number of samples (default 3)")
+    ap.add_argument("--pairs", type=int, default=10000, help="read pairs per sample (default 10000)")
+    ap.add_argument("--seed", type=int, default=7, help="random seed (default 7)")
+    a = ap.parse_args()
+    taxa = write_dataset(Path(a.out), n_samples=a.samples, pairs_per_sample=a.pairs, seed=a.seed)
+    print(f"{a.samples} samples of {a.pairs:,} read pairs written to {Path(a.out) / 'primer_trimmed'}")
+    print("amplicon lengths per taxon:", [len(t) for t in taxa])

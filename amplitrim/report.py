@@ -36,8 +36,8 @@ def _ee_text(max_ee) -> str:
 
 LOW_PASS = 0.85      # below this share of pairs passing the filter, the report adds a note that a low share is not a problem in itself
 
-_AUTHOR_NOTE = ("DADA2's author calls maxEE = 2 a good general purpose value and says that relaxing it somewhat is also OK, because DADA2's error "
-                "model uses the quality scores and so tolerates some noisier reads; but pushing through more lower-quality reads may not improve the "
+_AUTHOR_NOTE = ("DADA2's author calls maxEE = 2 a good general purpose value and says that relaxing it somewhat is also OK. DADA2's error model uses the quality "
+                "scores, so it tolerates some noisier reads. But pushing through more lower-quality reads may not improve the "
                 "relative abundances and could make them worse (DADA2 issue #2136, about PacBio reads). The table shows what a looser limit costs: "
                 "the expected errors in the kept reads.")
 
@@ -60,9 +60,9 @@ def _maxee_note(res: Result, short: bool = False) -> str:
             return (f"maxEE is {ee}, not 2: {had} at maxEE 2; each limit covers three quarters of the reads in its direction (never above {RULE_CAP}).")
         cap = f", and the limit was capped at {RULE_CAP}" if rule["capped"] else ""
         return (f"maxEE is {ee}, not DADA2's default of 2: at the recommended cut the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward and {pr:.1f} "
-                f"reverse, so each read's limit is set to cover three quarters of the reads in its direction (never below 2, never above {RULE_CAP}{cap}). {had} at maxEE 2 and "
+                f"reverse, so each read's limit is set to cover three quarters of the reads in its direction (never below 2, never above {RULE_CAP}{cap}). {had[0].upper() + had[1:]} at maxEE 2 and "
                 f"{r.ee_pass_rate:.0%} pass now; the reads this admits are noisier (see the table below). DADA2's author says that relaxing maxEE somewhat is acceptable because "
-                f"DADA2's error model uses the quality scores; the {RULE_Q * 100:.0f}th percentile and the cap of {RULE_CAP} are AmpliTrim's own and were chosen after seeing the validation data.")
+                f"DADA2's error model uses the quality scores; the {RULE_Q * 100:.0f}th percentile and the cap of {RULE_CAP} are AmpliTrim's own and were chosen after seeing the validation data. In a DADA2 test on five datasets this rule merged about as many pairs as relaxing to (2,5), and fewer on three of them (see 'How maxEE is chosen' in the user guide).")
     if tuple(rule["max_ee"]) == (2, 2):
         return (f"maxEE is 2, DADA2's default: at the recommended cut the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward and {pr:.1f} reverse, both under 2, "
                 f"so the default already covers three quarters of the reads in each direction; {r.ee_pass_rate:.0%} of the read pairs pass.")
@@ -175,8 +175,8 @@ def _coverage_section(res: Result) -> List[str]:
         out.append(f"Leaving out the longest {best['level']:.0%} of amplicons (those over {best['longest']} nt) would allow a total of {best['total']} nt "
                    f"instead of {cur['total']}, and raise the estimated yield from {cur['yield_est']:.1%} to {best['yield_est']:.1%}. Those amplicons "
                    f"belong to the taxa with the longest 16S regions, which the shorter setting cannot merge at all. AmpliTrim cannot tell which taxa "
-                   f"they are, so the trade is yours. To base the recommendation on another row, run again with `--allow-unmergeable "
-                   f"{best['level']:g}`.")
+                   f"they are, so the trade is yours. To base the recommendation on another row, set `max_unmergeable={best['level']:g}` in the Settings "
+                   f"(the Python interface; the command line does not offer it).")
     elif cur and cur["yield_est"] is not None:
         out.append("Leaving out more of the longest amplicons would barely improve the yield here, so the coverage rule is not what limits it.")
     return out + [""]
