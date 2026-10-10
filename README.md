@@ -114,4 +114,6 @@ Tested against real DADA2 runs on 12 public datasets (six mock communities and s
 
 ## Citation and licence
 
-MIT. Please cite AmpliTrim (see `CITATION.cff`, or the repository's *Cite this repository* button) and vsearch. vsearch (GPLv3 / BSD-2) is run as a separate program and is not bundled.
+MIT (see `LICENSE`). Please cite AmpliTrim (see `CITATION.cff`, or the repository's *Cite this repository* button) and [vsearch](https://github.com/torognes/vsearch), whose own page gives the reference to cite.
+
+**Third-party software.** AmpliTrim runs vsearch (dual-licensed, GPLv3 and BSD-2-Clause) as a separate program. Its source code is not part of this repository, it is not distributed with it, and its own licence governs its use and distribution. The Python libraries AmpliTrim imports (numpy and matplotlib) are installed separately under their own licences.

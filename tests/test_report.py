@@ -258,7 +258,7 @@ def test_the_per_maxEE_search_is_consistent_with_the_main_recommendation(cli_run
             assert o["pass_rate"] >= x["pass_rate"] - 1e-9
     report = (cli_run_explore.out / "REPORT.md").read_text()
     assert "## maxEE: retention against read quality" in report and "beaten by" in report and "Quality first" in report and "**2 (yours)**" in report and "never changes your maxEE" in report
-    assert "general-purpose value" in report and "expected errors per kept read" in report
+    assert "general purpose value" in report and "#2136" in report and "expected errors per kept read" in report
     assert "## What maxEE keeps" not in report                                     # the richer table replaces the fixed-truncation one
 
 

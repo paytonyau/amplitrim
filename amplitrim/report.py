@@ -434,7 +434,7 @@ def _its_loss_section(res: Result) -> List[str]:
         return []
     ee = _ee_text(res.cfg.max_ee)
     out = ["## Where the pairs go", "",
-           f"Of the {x['pairs']:,} read pairs analysed, with maxEE {ee} and a minimum length of {res.min_len} nt (estimates; the merging is vsearch's):", "",
+           f"Of the {x['pairs']:,} read pairs analysed, with maxEE {ee} and a minimum length of {res.min_len} nt (the filter rows replicate DADA2's filter; the merging rows are vsearch's estimate):", "",
            "| step | share of the pairs |", "|---|---|",
            f"| too short after the cut at the first base of quality 2 or below (under {res.min_len} nt) | {x['too_short']:.1%} |",
            f"| contain an N | {x['has_n']:.1%} |",
@@ -442,8 +442,7 @@ def _its_loss_section(res: Result) -> List[str]:
            f"| **pass the filter** | **{x['pass']:.1%}** |",
            f"| pass the filter but do not merge | {x['pass_not_merged']:.1%} |",
            f"| **pass the filter and merge** | **{x['pass_and_merged']:.1%}** |", "",
-           f"- **{1 - x['overlap_at_full_length']:.0%} of the pairs do not merge even at full read length:** the amplicon is longer than your two reads can span, or the overlap is too poor. "
-           f"No setting recovers these as pairs."]
+           "The first rows are DADA2's own filter, replicated. The last two are vsearch's estimate on the raw reads, which cannot see DADA2's denoising or its own merging (see Limits)."]
     if x["forward_only_pass"] > x["pass_and_merged"]:
         out.append(f"- **Using the forward reads alone,** {x['forward_only_pass']:.1%} of the reads would pass the same filter, against {x['pass_and_merged']:.1%} of the pairs that pass and merge. "
                    f"DADA2's author says that using only the forward reads is \"totally reasonable\", and that when the reverse reads are bad enough they \"will cost more in sensitivity to "
@@ -492,6 +491,8 @@ def _report_text_its(res: Result) -> str:
             "- The estimates come from merging raw reads with vsearch, not from DADA2. Run DADA2 once with these "
             "settings to confirm.",
             "- Pairs whose amplicon is longer than the reads can span cannot merge, with any setting.",
+            "- The 'pass the filter but do not merge' row can be far too low: DADA2 also loses pairs in denoising and in its own merging, and an estimate from the raw reads sees neither "
+            "(the user guide gives the figures for the one ITS dataset we checked).",
             _LIMIT_ACCURACY, _LIMIT_DENOISING, _LIMIT_INPUT, "",
             f"_AmpliTrim {__version__}_", ""]
     return "\n".join(out)

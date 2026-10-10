@@ -27,10 +27,11 @@ def test_where_the_pairs_go_adds_up_and_agrees_with_the_filter(reads, tmp_path):
     assert x["too_short"] + x["has_n"] + x["over_maxEE"] + x["pass"] == pytest.approx(1.0)                    # every pair is in exactly one row
     assert x["pass"] == pytest.approx(res.recommendation.ee_pass_rate) and x["pass_and_merged"] == pytest.approx(res.recommendation.yield_est)
     assert x["pass_not_merged"] == pytest.approx(x["pass"] - x["pass_and_merged"]) and x["pass_not_merged"] >= 0
-    assert 0 <= x["overlap_at_full_length"] <= 1 and x["pairs"] == res.sub.n_pairs
+    assert x["pairs"] == res.sub.n_pairs and "overlap_at_full_length" not in x
     assert summary["its"] == x and summary["schema_version"] == 1
-    for need in ("## Where the pairs go", "too short after the cut at the first base of quality 2 or below", "contain an N", "pass the filter but do not merge", "do not merge even at full read length"):
+    for need in ("## Where the pairs go", "too short after the cut at the first base of quality 2 or below", "contain an N", "pass the filter but do not merge", "DADA2's own filter, replicated", "can be far too low"):
         assert need in report, need
+    assert "do not merge even at full read length" not in report and "No setting recovers these" not in report          # that claim mixed the pairs the filter drops anyway with a separate loss
 
 
 def test_the_forward_reads_alone_are_suggested_when_the_reverse_reads_are_the_problem(tmp_path):

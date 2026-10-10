@@ -230,7 +230,7 @@ def _run_its(s: Settings, cfg: Config, sub: SubsampleInfo, inserts: List[int], f
     n = max(1, int(pairs.n))
     res.its_loss = {"pairs": int(pairs.n), "too_short": float(short.sum()) / n, "has_n": float(has_n.sum()) / n, "over_maxEE": float(ee_fail.sum()) / n,
                     "pass": float(kept.sum()) / n, "pass_not_merged": max(0.0, float(kept.sum()) / n - cand.yield_est), "pass_and_merged": cand.yield_est,
-                    "overlap_at_full_length": max(0.0, min(1.0, frac)), "forward_only_pass": float(pairs.untruncated_forward(cfg.max_ee, s.min_len).sum()) / n}
+                    "forward_only_pass": float(pairs.untruncated_forward(cfg.max_ee, s.min_len).sum()) / n}
     say(f"  no fixed truncation: {cand.yield_est:.1%} of pairs usable")
     say("Finding what other maxEE values would keep...")
     res.min_retention = s.min_retention
