@@ -1,7 +1,7 @@
 # AmpliTrim
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/paytonyau/amplitrim/blob/main/LICENSE)
 [![Tests](https://github.com/paytonyau/amplitrim/actions/workflows/tests.yml/badge.svg)](https://github.com/paytonyau/amplitrim/actions/workflows/tests.yml)
 
 **Choose DADA2 truncation lengths and `maxEE` from your own reads.**
@@ -9,17 +9,52 @@
 AmpliTrim is for **Illumina paired-end amplicon reads** (tested on 16S and ITS data from MiSeq and NovaSeq runs). In DADA2 you pick `truncLenF`, `truncLenR` and `maxEE`. Cut too short, and your longest amplicons cannot merge. Cut too long, and noisy read ends cost you reads. Most people choose by eye from quality plots. AmpliTrim tests candidate settings on your own reads, recommends the best, and shows why. It does not change your files: it only recommends settings.
 
 ```
-raw FASTQ  →  remove primers and adapters (for example cutadapt)  →  AmpliTrim  →  DADA2 (in R, or in QIIME 2's DADA2 plugin)
+FASTQ  →  cutadapt  →  AmpliTrim  →  DADA2
 ```
 
-It needs paired reads (R1 and R2). It is not for long reads or single-end data.
+Run AmpliTrim after primer removal and before DADA2 (in R or in QIIME 2). It needs paired reads (R1 and R2), not long reads or single-end data.
 
 ## Why use it
 
-- **It uses every read pair.** After primer removal, reads often differ in length. AmpliTrim does not need them equal, so nothing is thrown away. A tool that needs equal lengths could use only 8% to 98% of the pairs in our test datasets.
-- **It predicts the result.** It replicates DADA2's quality filter exactly (within 0.8 points on all 12 test datasets) and merges a sample of your pairs with vsearch, so you see how many will pass and merge.
+- **It uses every read pair.** After primer removal, reads often differ in length. AmpliTrim does not need them equal, so nothing is thrown away.
+- **It predicts the result.** It replicates DADA2's quality filter exactly and merges a sample of your pairs with vsearch, so you see how many will pass and merge.
 - **It reads your data, not a table.** It measures your amplicon lengths, checks that your longest amplicons can merge, and handles ITS and other regions where lengths vary.
 - **It is ready to use.** You get copy-paste settings for DADA2, in R or in QIIME 2's `dada2 denoise-paired`, and a stable `summary.json` for pipelines.
+
+## How it compares
+
+We compared AmpliTrim with an existing automatic tool for choosing truncation lengths, in real DADA2 runs on public datasets and at the same `maxEE`.
+
+| | AmpliTrim | Existing tool |
+|---|---|---|
+| Read pairs it can use | all | 8% to 98% (it needs reads of one length) |
+| Pairs merged by DADA2 with its cut | real samples (4 datasets): ahead on 2, tied on 2 (mean +0.6 points)<br>mock communities (5 datasets): ahead on 2, tied on 3 (mean +0.6 points)<br>wastewater (1 dataset): behind by 1.0 point\* | the reference |
+| Error in the predicted filter pass rate | 0.8 points at most (mean 0.2) | 0.2 to 7.7 points |
+| ITS reads | supported | cannot be run |
+
+\* Wastewater is shown on its own. It is the only real dataset in this comparison with poor read quality (an estimated 54% of its pairs pass DADA2's default filter), its reads were trimmed to mixed lengths, and every pair was in reverse orientation. It is the one case where the other tool was ahead: AmpliTrim chose a cut 6 nt longer, which cost about a point.
+
+Merging is a tie: only mock community B (+2.6) is beyond the 2-point margin we set in advance, and the two datasets used in development (mock A and soil V4) both tied. The gains are in the other rows.
+
+<details>
+<summary>Per dataset: pairs merged by DADA2, AmpliTrim's cut minus the other tool's (points)</summary>
+
+| Type | Dataset (16S) | Samples | Role | Difference |
+|---|---|---|---|---|
+| Real samples | V1-V2 real samples | 33 | held out | +1.1 |
+| Real samples | V4 soil | 36 | development | 0.0 |
+| Real samples | V3-V4 mouse gut with spike-ins | 12 | held out | +1.3 |
+| Real samples | V3-V4 surface swabs | 36 | held out | 0.0 |
+| Mock communities | V1-V3 mock community A | 6 | development | 0.0 |
+| Mock communities | V1-V2 inter-laboratory mock | 6 | held out | 0.0 |
+| Mock communities | V1-V3 mock community B | 8 | held out | +2.6 |
+| Mock communities | V4-V6 inter-laboratory mock | 5 | held out | +0.3 |
+| Mock communities | V3-V4 ZymoBIOMICS mock (D6300) | 10 | held out | 0.0 |
+| Wastewater | V3-V4 wastewater | 9 | held out | -1.0 |
+
+</details>
+
+What held, what did not, and the limits are on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md), in the [archive](https://github.com/paytonyau/amplitrim-validation) that also holds the scripts and the criteria written down before each run.
 
 ## Quick start
 
@@ -54,36 +89,31 @@ These reads are simulated, so use them to see what the report looks like, not to
 
 ## What you need
 
-- **Python 3.9 or later** and **[vsearch](https://github.com/torognes/vsearch)** on your `PATH` ([install steps](docs/usage.md#install), including Windows).
+- **Python 3.9 or later** and **[vsearch](https://github.com/torognes/vsearch)** on your `PATH` ([install steps](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#install), including Windows).
 - **Paired FASTQ files** in one folder, named like `sample_R1.fastq.gz` and `sample_R2.fastq.gz`.
-- **Primers and adapters already removed** (for example with cutadapt), and no quality trimming. R1 must be the forward read ([details](docs/usage.md#input)).
+- **Primers and adapters already removed** (for example with cutadapt), and no quality trimming. R1 must be the forward read ([details](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#input)).
 
 ## Options
 
-Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for amplicons that vary a lot in length, such as ITS) and `--verbose`. AmpliTrim chooses everything else, including `maxEE` ([user guide](docs/usage.md#arguments)).
+Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for amplicons that vary a lot in length, such as ITS) and `--verbose`. AmpliTrim chooses everything else, including `maxEE` ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments)).
 
 ## How the settings are chosen
 
 | Setting | How |
 |---|---|
 | `truncLenF`, `truncLenR` | The shortest total that can merge your longest amplicons (the amplicon plus 12), split between the two reads where quality allows. Real merges are tested with vsearch |
-| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never above 5 ([how](docs/usage.md#how-maxee-is-chosen)) |
+| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)) |
 | `minOverlap` | 12 (DADA2's default) |
 
-The outputs are `REPORT.md` (read this one), `summary.json` (for scripts; [every key](docs/usage.md#summaryjson-for-scripts-and-workflow-managers)) and `summary.png` (a figure of your amplicon lengths and how errors build up).
+The outputs are `REPORT.md` (read this one), `summary.json` (for scripts; [every key](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#summaryjson-for-scripts-and-workflow-managers)) and `summary.png` (a figure of your amplicon lengths and how errors build up).
 
 ## Limits
 
-- **It is for DADA2.** QIIME 2's other denoiser, Deblur, uses different settings (one trim length for merged reads), which AmpliTrim does not recommend ([guide](docs/usage.md#what-amplitrim-recommends)).
+- **It is for DADA2.** QIIME 2's other denoiser, Deblur, uses different settings (one trim length for merged reads), which AmpliTrim does not recommend ([guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#what-amplitrim-recommends)).
 - **The yield is an optimistic estimate.** It is measured before DADA2 denoises the reads. Use it to compare settings, and run DADA2 once to confirm.
 - **It checks quality and mergeability, not accuracy.**
-- **The `maxEE` rule is the least tested part.** It did not meet its adoption criteria in our validation.
-- **A tail of much longer amplicons** (for example non-target 18S) can force long, noisy reads. Only the longest 0.2% are set aside, so remove such reads first ([guide](docs/usage.md#limitations)).
-
-## Evidence
-
-AmpliTrim was tested against real DADA2 runs on 12 public datasets, with the criteria written down before each run. The filter prediction held, and the truncation lengths merged as many pairs as an existing automatic tool's at the same `maxEE` (equivalent, not better). What held, what did not, and the limits are on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md), in the [archive](https://github.com/paytonyau/amplitrim-validation) that also holds the scripts and criteria.
+- **A tail of much longer amplicons** (for example non-target 18S) can force long, noisy reads. Only the longest 0.2% are set aside, so remove such reads first ([guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#limitations)).
 
 ## Citation, licence and contributing
 
-MIT (see `LICENSE`). Please cite AmpliTrim (`CITATION.cff`) and [vsearch](https://github.com/torognes/vsearch). vsearch (GPLv3 and BSD-2-Clause) runs as a separate program, and its own licence applies. numpy and matplotlib are installed separately. For bug reports, questions and contributions, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+MIT (see `LICENSE`). Please cite AmpliTrim (`CITATION.cff`) and [vsearch](https://github.com/torognes/vsearch). vsearch (GPLv3 and BSD-2-Clause) runs as a separate program, and its own licence applies. numpy and matplotlib are installed separately. For bug reports, questions and contributions, see [`CONTRIBUTING.md`](https://github.com/paytonyau/amplitrim/blob/main/CONTRIBUTING.md).

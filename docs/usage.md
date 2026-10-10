@@ -38,10 +38,9 @@ folder is opened by the Windows build of vsearch, which reads file names in the 
 your code page work and anything else is refused with a clear message (use a plain folder such as `C:\amplitrim_work`). Quote
 paths that contain spaces. WSL2 with a Linux conda is the alternative if anything here fails.
 
-Tested on Linux and on Windows 11 (conda, Python 3.12, vsearch 2.32.0), including paths with spaces and accented letters, the error messages and exit codes. macOS is expected to work.  The GitHub Actions workflow in `.github/workflows/` runs the tests on Linux, macOS and Windows (Python 3.9 and 3.12).
+Tested on Linux and on Windows 11 (conda, Python 3.12, vsearch 2.32.0), including paths with spaces and accented letters, the error messages and exit codes. macOS is expected to work.  The GitHub Actions workflow in `.github/workflows/` runs the tests on Linux, macOS and Windows (Python 3.9 and 3.12; also 3.10 and 3.11 on Linux).
 
-A run on 12,000-30,000 read pairs takes roughly 5-10 seconds on one core, up to twice that when `maxEE` is relaxed (the search is repeated). Memory use
-is about 3 KB per pair analysed.
+AmpliTrim analyses a deterministic subsample of at most 50,000 read pairs, so the run time and the memory use do not keep growing with the size of your dataset. We have not yet timed the released version. Early builds took about 10 to 25 seconds for 36,000 simulated read pairs on one core (one run each). The search is repeated when `maxEE` is relaxed, which takes longer.
 
 ## Input
 

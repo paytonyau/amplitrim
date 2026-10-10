@@ -1,17 +1,25 @@
 [project]
 name = "amplitrim"
-version = "0.1.0"
+dynamic = ["version"]                      # read from amplitrim/__init__.py, the one place the version is written
 description = "Recommends DADA2 truncLenF, truncLenR and maxEE for paired-end amplicon reads by testing candidate settings on your own reads."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "Payton Yau" }]
+authors = [{ name = "Payton (Tung On) Yau" }]
 keywords = ["DADA2", "amplicon sequencing", "16S rRNA", "ITS", "paired-end reads", "truncLen", "maxEE"]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Environment :: Console",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
@@ -24,7 +32,12 @@ test = ["pytest", "pandas>=2.0"]      # pandas is used only by the tests
 
 [project.urls]
 Homepage = "https://github.com/paytonyau/amplitrim"
+Documentation = "https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md"
+Source = "https://github.com/paytonyau/amplitrim"
 Issues = "https://github.com/paytonyau/amplitrim/issues"
+Changelog = "https://github.com/paytonyau/amplitrim/blob/main/CHANGELOG.md"
+Citation = "https://github.com/paytonyau/amplitrim/blob/main/CITATION.cff"
+Validation = "https://github.com/paytonyau/amplitrim-validation"
 
 [project.scripts]
 amplitrim = "amplitrim.cli:main"
@@ -35,3 +48,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["amplitrim"]
+
+[tool.setuptools.dynamic]
+version = { attr = "amplitrim.__version__" }
