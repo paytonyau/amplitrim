@@ -1,0 +1,37 @@
+name: tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install vsearch (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y vsearch
+      - name: Install vsearch (macOS)
+        if: runner.os == 'macOS'
+        run: brew install vsearch
+      - name: Install vsearch (Windows)
+        # Downloads the Windows build from vsearch's GitHub releases. The tests need vsearch, so a failure here fails the job.
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo torognes/vsearch --pattern '*win*.zip' --dir vsearch-dl
+          7z x vsearch-dl/*.zip -ovsearch-bin
+          BIN="$(cygpath -w "$(pwd)/$(dirname "$(find vsearch-bin -name vsearch.exe | head -1)")")"
+          echo "$BIN" >> "$GITHUB_PATH"
+
+      - run: python -m pip install -e ".[test]"
+      - run: python -m pytest tests -q
