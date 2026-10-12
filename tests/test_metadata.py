@@ -91,8 +91,8 @@ def test_the_built_metadata_is_complete_and_claims_only_what_ci_tests():
     assert fields(meta, "Description-Content-Type") == ["text/markdown"] and fields(meta, "License-File") == ["LICENSE"]
     runtime = {r.replace(" ", "") for r in fields(meta, "Requires-Dist") if "extra ==" not in r}
     assert runtime == {"numpy>=1.24"}, runtime                                                          # one runtime dependency: the figure's matplotlib, the tests' pandas and pytest are extras
-    extras = {r.replace(" ", "") for r in fields(meta, "Requires-Dist") if "extra ==" in r}
-    assert any(r.startswith("matplotlib>=3.7;") and "extra=='plot'" in r for r in extras), extras
+    extras = {extra_requirement(r) for r in fields(meta, "Requires-Dist") if "extra ==" in r}
+    assert "matplotlib>=3.7;extra=='plot'" in extras, extras                                           # the figure's matplotlib is the optional "plot" extra
     classifiers = set(fields(meta, "Classifier"))
     for c in ("Environment :: Console", "Operating System :: OS Independent", "Topic :: Scientific/Engineering :: Bio-Informatics", "License :: OSI Approved :: MIT License"):
         assert c in classifiers, c
@@ -121,3 +121,13 @@ def test_the_source_archive_can_run_the_tests():
     assert {"tests/" + p.name for p in (ROOT / "tests").glob("test_*.py")} <= names
     assert any(n.startswith("tests/fixtures/") for n in names)
     assert not [n for n in names if "__pycache__" in n or n.endswith(".pyc") or n.startswith((".git/", ".github/"))]
+
+
+def extra_requirement(requirement: str) -> str:
+    """One form for a requirement of an extra: the metadata writes 'matplotlib>=3.7; extra == "plot"' with newer setuptools and the same with single quotes with older ones."""
+    return requirement.replace(" ", "").replace('"', "'")
+
+
+def test_an_extra_is_recognised_whichever_quotes_the_build_tool_writes():
+    assert extra_requirement('matplotlib>=3.7 ; extra == "plot"') == extra_requirement("matplotlib>=3.7 ; extra == 'plot'") == "matplotlib>=3.7;extra=='plot'"
+    assert extra_requirement('pytest ; extra == "test"') == "pytest;extra=='test'"
