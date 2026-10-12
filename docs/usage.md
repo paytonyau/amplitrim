@@ -14,6 +14,8 @@ conda install -c bioconda vsearch                                         # or: 
 pip install .
 ```
 
+The figure `summary.png` needs matplotlib, which is optional: `pip install ".[plot]"`. Without it AmpliTrim writes `REPORT.md` and `summary.json` as usual and says that no figure was drawn.
+
 **Windows** (Anaconda or Miniconda Prompt). The Python packages all have Windows builds on PyPI, so use `pip` inside a conda
 environment. vsearch comes from its own Windows download.
 
@@ -72,14 +74,14 @@ Three are required (`--input-dir`, `--work-dir`, `--out-dir`) and two are option
 
 `--work-dir` holds intermediate files (the subsample, trimmed and merged reads) and can be deleted afterwards. It is required, and it has no default inside the output folder, for a reason that applies to Windows. The Windows build of vsearch opens files by their names in the system's ANSI code page. Accented letters from your code page work, and any other character is refused with a clear message. Use a plain folder such as `C:\amplitrim_work`.
 
-**`--its`.** By default AmpliTrim treats the amplicons as roughly the same length (16S, 18S and most other regions): it measures their lengths and searches for truncation lengths. Where amplicon lengths vary a lot (ITS), a fixed `truncLen` would discard every read shorter than it, so DADA2's own ITS workflow does not use one. `--its` evaluates exactly that workflow. Each read is cut at its first base of quality 2 or below (`truncQ = 2`, DADA2's permissive default, so only the very worst tails are cut). A pair is then kept if both reads are at least 50 nt long (`minLen`), contain no N and are within `maxEE`. A read with a noisy tail is not shortened: it is dropped when its expected errors exceed `maxEE`. AmpliTrim reports the expected share of pairs that pass and merge, and recommends no fixed truncation length. The ITS report also shows **where the pairs go** (too short after the cut, containing an N, over `maxEE`, passing but not merging). It also says what share of the reads would pass the same filter if you used the forward reads alone. DADA2's author calls this "totally reasonable" when the reverse reads are poor (issue #236, 2017). On the one ITS dataset we tested, the filter rows and the forward-only share match DADA2's own filter exactly, and the merging rows are an optimistic upper bound. The figures, and where DADA2 loses the rest of the pairs, are on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#its---its).
+**`--its`.** By default AmpliTrim treats the amplicons as roughly the same length (16S, 18S and most other regions): it measures their lengths and searches for truncation lengths. Where amplicon lengths vary a lot (ITS), a fixed `truncLen` would discard every read shorter than it, so DADA2's own ITS workflow does not use one. `--its` evaluates exactly that workflow, with its settings (`maxN = 0`, `truncQ = 2`, `minLen = 50` and `maxEE = c(2,2)`). Each read is cut at its first base of quality 2 or below (`truncQ = 2`, DADA2's permissive default, so only the very worst tails are cut). A pair is then kept if both reads are at least 50 nt long (`minLen`), contain no N and are within `maxEE`. A read with a noisy tail is not shortened: it is dropped when its expected errors exceed `maxEE`. AmpliTrim reports the expected share of pairs that pass and merge, and recommends no fixed truncation length. The ITS report also shows **where the pairs go** (too short after the cut, containing an N, over `maxEE`, passing but not merging). It also says what share of the reads would pass the same filter if you used the forward reads alone. DADA2's author calls this "totally reasonable" when the reverse reads are poor (issue #236, 2017). On the one ITS dataset we tested, the filter rows and the forward-only share match DADA2's own filter exactly, and the merging rows are an optimistic upper bound. The figures, and where DADA2 loses the rest of the pairs, are on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#its---its).
 
 ## What AmpliTrim recommends
 
 | Setting | How it is chosen |
 |---|---|
 | `truncLenF`, `truncLenR` | Searched on your reads (see [How it works](#how-it-works)) |
-| `maxEE` | Per read, the limit that covers three quarters of the reads at the recommended cut, never below 2 and never above 5 ([how maxEE is chosen](#how-maxee-is-chosen)) |
+| `maxEE` | Per read, the limit that covers three quarters of the reads at the recommended cut, never below 2, with no upper limit ([how maxEE is chosen](#how-maxee-is-chosen)) |
 | `minOverlap`, `maxMismatch` | `12` and `0`, DADA2's defaults for `mergePairs` |
 
 These are DADA2 settings, for DADA2 in R or in QIIME 2's DADA2 plugin. QIIME 2 also offers Deblur, which is a different method: it takes single or already merged reads, trims them all to one length (`--p-trim-length`), and has no `truncLenF`, `truncLenR` or `maxEE`, because its quality filtering is a separate step. AmpliTrim's recommendations therefore do not apply to Deblur, and we have not tested AmpliTrim with it. The amplicon lengths in the report may help you choose a trim length, but AmpliTrim does not recommend one. See the QIIME 2 documentation for Deblur.
@@ -90,7 +92,7 @@ These are DADA2 settings, for DADA2 in R or in QIIME 2's DADA2 plugin. QIIME 2 a
 |---|---|
 | `REPORT.md` | The recommended settings, what to expect, warnings, what other `maxEE` values would keep, and how the settings were chosen |
 | `summary.json` | The same result for programs (below) |
-| `summary.png` | Your amplicon lengths, the share of usable read pairs by total trimmed length, and how expected errors accumulate along the reads, with the `maxEE` line and the recommended cuts |
+| `summary.png` (only if matplotlib is installed) | Your amplicon lengths, the share of usable read pairs by total trimmed length, and how expected errors accumulate along the reads, with the `maxEE` line and the recommended cuts |
 
 Exit status: `0` recommendation made, `2` nothing tested could merge your longest amplicons (the files are still written, and `recommended` is `null`), `3` bad input or missing tool (nothing is written; the message is on stderr).
 
@@ -103,7 +105,7 @@ Exit status: `0` recommendation made, `2` nothing tested could merge your longes
 | `schema_version` | `1` |
 | `maxEE_rule.relaxed` | `true` if the rule gave a limit above 2 and `maxEE` was relaxed from 2 |
 | `maxEE_rule.pass_rate_at_maxEE_2` | The share of pairs that passed at `maxEE` 2 with the best truncation at 2 (`null` if none did) |
-| `maxEE_rule.percentile`, `.cap` | The percentile and the cap of the rule (0.75 and 5) |
+| `maxEE_rule.percentile`, `.cap`, `.warn_above` | The percentile of the rule (0.75), its cap (`null`: the rule has none) and the limit above which the report adds a note (5) |
 | `maxEE_rule.cut_measured_at`, `.percentile_expected_errors` | The cut at which the reads were measured, and the 75th percentile of the expected errors of the forward and the reverse reads there (`null` for ITS) |
 | `recommended` | `null` if nothing could merge your longest amplicons; otherwise the settings below |
 | `recommended.truncLenF`, `.truncLenR` | DADA2 `truncLen` (0 and 0 with `--its`: no fixed truncation length) |
@@ -187,11 +189,10 @@ Leaving amplicons out loses those taxa for good (in a test on a mock community n
 
 ## How maxEE is chosen
 
-AmpliTrim recommends `maxEE` as well as the truncation, in two steps. It first finds the best truncation at `maxEE` 2 (DADA2's default, which DADA2's author calls "a good general purpose value"). Then, at that cut, it measures the expected errors of every read. For each read direction it sets the limit that covers three quarters of its reads. This is `int` of the 75th percentile of their expected errors, plus 1, never below 2 and never above 5. If that is (2,2), nothing changes; otherwise the search is repeated at it, because a looser limit can let a different cut win. ITS is not adjusted. Reads are not cut at a common position, so there is no cut to measure at (each read is only trimmed where its quality first falls to 2 or below). The rule has also not been tested on reads of different lengths. It is unlikely to matter much there: on the ITS dataset, relaxing `maxEE` passed 12 points more pairs but merged only 2.7 points more. If nothing passes at `maxEE` 2, the reads are measured at the shortest cut that covers your amplicons. The report shows the share passing at other values at the recommended truncation, and what a looser limit costs in the expected errors of the kept reads.
+AmpliTrim recommends `maxEE` as well as the truncation, in two steps. It first finds the best truncation at `maxEE` 2, DADA2's default, which DADA2's author calls "a good general purpose value". Then, at that cut, it measures the expected errors of every read and sets, for each read direction, the limit that covers three quarters of its reads: `int` of the 75th percentile of their expected errors, plus 1, never below 2. There is no upper limit: the limit is what the reads need, and the report adds a note when it goes above 5. If the result is (2,2), nothing changes; otherwise the search is repeated at it, because a looser limit can let a different cut win. If nothing passes at `maxEE` 2, the reads are measured at the shortest cut that covers your amplicons, judged at `maxEE` 5; that value only decides where to look. ITS is not adjusted, because its reads are not cut at a common position.
 
-The 75th percentile and the limit of 5 are AmpliTrim's own choices: DADA2's author says that relaxing `maxEE` somewhat is also OK, but gives no number.
+**How much to trust it.** The rule follows the advice of DADA2's author, who wrote that relaxing `maxEE` somewhat is also OK (GitHub issue #2136), but it is AmpliTrim's own and has not been tested on independent data. The report shows what a looser limit costs in the expected errors of the kept reads. AmpliTrim does not measure accuracy, so if it matters for your study, check a looser `maxEE` on a mock community. The evidence, with what held and what did not, is on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#maxee).
 
-**How much to trust it.** The 75th percentile and the cap were chosen after we had seen the validation data, and the rule has not been tested on independent data. In a pre-registered test it did **not** meet its adoption criteria. On the five datasets where it relaxes `maxEE`, it merged more pairs than the default on all five, and about as many as relaxing to `2,5` on average, but fewer than `2,5` on three of the five. We keep it as a trade-off that we state openly: it adapts to each read, and it keeps its limits within the range that DADA2's author calls acceptable. The report's table shows what a looser limit costs in noisier reads. AmpliTrim does not measure accuracy, so if accuracy matters for your study, check a looser `maxEE` on a mock community. The numbers, and what DADA2's author has said about `maxEE`, are on the [validation page](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md#maxee).
 
 ## Limitations
 

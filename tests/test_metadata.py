@@ -78,6 +78,7 @@ def test_the_version_is_written_once_and_agrees_everywhere():
     assert re.search(r"^## %s\b" % re.escape(v), read("CHANGELOG.md"), flags=re.M)
     assert "AmpliTrim %s\n" % v in read("README.md")                                                  # the example output in the README
     assert read("docs/index.html").count("AmpliTrim %s" % v) >= 2                                      # the example output and the footer of the page
+    assert not (ROOT / "docs" / "how-it-works").exists()                                                # the how-it-works page is on the archive's site; its footer takes the version from the code
 
 
 def test_the_built_metadata_is_complete_and_claims_only_what_ci_tests():
@@ -89,7 +90,9 @@ def test_the_built_metadata_is_complete_and_claims_only_what_ci_tests():
     assert fields(meta, "Author") == [author]                                                          # the name in the citation file
     assert fields(meta, "Description-Content-Type") == ["text/markdown"] and fields(meta, "License-File") == ["LICENSE"]
     runtime = {r.replace(" ", "") for r in fields(meta, "Requires-Dist") if "extra ==" not in r}
-    assert runtime == {"numpy>=1.24", "matplotlib>=3.7"}, runtime                                      # the tests' pandas and pytest stay in the extra
+    assert runtime == {"numpy>=1.24"}, runtime                                                          # one runtime dependency: the figure's matplotlib, the tests' pandas and pytest are extras
+    extras = {r.replace(" ", "") for r in fields(meta, "Requires-Dist") if "extra ==" in r}
+    assert any(r.startswith("matplotlib>=3.7;") and "extra=='plot'" in r for r in extras), extras
     classifiers = set(fields(meta, "Classifier"))
     for c in ("Environment :: Console", "Operating System :: OS Independent", "Topic :: Scientific/Engineering :: Bio-Informatics", "License :: OSI Approved :: MIT License"):
         assert c in classifiers, c

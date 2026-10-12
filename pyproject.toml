@@ -24,11 +24,11 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.24",
-    "matplotlib>=3.7",
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pandas>=2.0"]      # pandas is used only by the tests
+plot = ["matplotlib>=3.7"]               # only for summary.png; without it the report and summary.json are written as usual
+test = ["pytest", "pandas>=2.0", "matplotlib>=3.7"]      # pandas is used only by the tests
 
 [project.urls]
 Homepage = "https://github.com/paytonyau/amplitrim"

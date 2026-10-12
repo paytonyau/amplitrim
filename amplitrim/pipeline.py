@@ -72,7 +72,7 @@ class Result:
     short_lost: float = 0.0              # share of pairs shorter than the recommended truncation
     marker: str = "16s"
     min_len: int = 50
-    relaxed: bool = False                                  # maxEE was relaxed from 2 by the rule (RULE_Q, RULE_CAP) because the reads at the cut need more than 2
+    relaxed: bool = False                                  # maxEE was relaxed from 2 by the rule (RULE_Q) because the reads at the cut need more than 2
     rule: Optional[dict] = None                            # what the rule measured: the cut, the percentile of the expected errors, the raw and the final limits
     its_loss: Optional[dict] = None                        # ITS only: where the pairs go (shares of the pairs analysed) and the share a forward-reads-only analysis would keep
     pass_rate_default: Optional[float] = None              # the share of pairs that pass at maxEE 2 with the best truncation at that maxEE
@@ -339,7 +339,9 @@ def _ee_search(res: Result, pairs: ReadPairs, s: Settings, work: Path) -> list:
     return rows
 
 
-RULE_Q, RULE_CAP = 0.75, 5     # maxEE, per read: int(the 75th percentile of the reads' expected errors at the cut) + 1, never below 2 (DADA2's default), never above 5
+RULE_Q = 0.75                  # maxEE, per read: int(the 75th percentile of the reads' expected errors at the cut) + 1, never below 2 (DADA2's default). There is no upper limit
+WARN_ABOVE = 5                 # the report notes it when a limit is above this: a note, not a limit
+MEASURE_AT = 5                 # only where to measure the reads when nothing passes at maxEE 2 (see _rule_cut); it does not limit the recommendation
 
 
 def _collapse(f: float, r: float):
@@ -354,24 +356,24 @@ def _rule_max_ee(pairs: ReadPairs, trim_f: int, trim_r: int) -> Optional[dict]:
         return None
     pct = (float(np.percentile(ef, 100 * RULE_Q)), float(np.percentile(er, 100 * RULE_Q)))
     raw = (int(pct[0]) + 1, int(pct[1]) + 1)                                  # truncation, then +1: FIGARO's rounding of the same quantity
-    final = tuple(min(RULE_CAP, max(2, v)) for v in raw)
-    return {"cut": [trim_f, trim_r], "percentile": list(pct), "raw": list(raw), "max_ee": list(final), "capped": any(v > RULE_CAP for v in raw)}
+    final = tuple(max(2, v) for v in raw)
+    return {"cut": [trim_f, trim_r], "percentile": list(pct), "raw": list(raw), "max_ee": list(final), "above_warning": any(v > WARN_ABOVE for v in final)}
 
 
 def _rule_cut(pairs: ReadPairs, first: "Result") -> Optional[tuple]:
     """Where to measure the reads: the recommended cut at maxEE 2, or, when nothing passes at 2, the best split of the shortest total that covers the amplicons
-    (judged at the cap, the loosest limit the rule can give)."""
+    (judged at MEASURE_AT: it only decides where to look, and does not limit the recommendation)."""
     r = first.recommendation
     if r is not None:
         return (r.trim_f, r.trim_r)
-    best = pairs.pass_table((float(RULE_CAP), float(RULE_CAP))).best_split(first.floor)
+    best = pairs.pass_table((float(MEASURE_AT), float(MEASURE_AT))).best_split(first.floor)
     return None if not best else (best[0], best[1])
 
 
 def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     """AmpliTrim recommends maxEE as well as the truncation, in two steps: the best truncation at maxEE 2; then, at that cut, per read, the limit that covers
-    three quarters of the reads in its direction (int of the 75th percentile of their expected errors, plus 1; never below 2 and never above 5); where that is
-    not (2,2) the search is repeated at it. The 75th percentile and the cap were chosen after seeing the validation datasets and have not been tested on
+    three quarters of the reads in its direction (int of the 75th percentile of their expected errors, plus 1; never below 2; there is no upper limit, and the report notes a limit above 5); where that is
+    not (2,2) the search is repeated at it. The 75th percentile was chosen after seeing the validation datasets and has not been tested on
     independent data. ITS is not adjusted: reads are not cut at a common position, so there is no cut to measure at (and the rule is untested on reads of different lengths). A maxEE given in the settings is used exactly as given (for programs and
     tests; the command line does not offer it)."""
     if s.max_ee is not None:
@@ -394,6 +396,9 @@ def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     if second.recommendation is None:                                         # relaxing did not help: report maxEE 2 as it is
         return first
     second.relaxed, second.pass_rate_default, second.rule = True, first.pass_rate_default, rule
+    if rule["above_warning"]:
+        second.warnings.append(f"The rule sets maxEE {rule['max_ee'][0]},{rule['max_ee'][1]}, above {WARN_ABOVE}: these reads are very noisy, and more low-quality reads may not improve the relative abundances "
+                               f"(DADA2's author). Check on a mock community if you can.")
     return second
 
 

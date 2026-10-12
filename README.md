@@ -32,7 +32,7 @@ We compared AmpliTrim with an existing automatic tool for choosing truncation le
 | Error in the predicted filter pass rate | 0.8 points at most (mean 0.2) | 0.2 to 7.7 points |
 | ITS reads | supported | cannot be run |
 
-\* Wastewater is shown on its own. It is the only real dataset in this comparison with poor read quality (an estimated 54% of its pairs pass DADA2's default filter), its reads were trimmed to mixed lengths, and every pair was in reverse orientation. It is the one case where the other tool was ahead: AmpliTrim chose a cut 6 nt longer, which cost about a point.
+\* Wastewater is shown on its own. Its reads are noisy: it is the only real dataset in this comparison with poor read quality, an estimated 54% of its pairs pass DADA2's default filter, and the loss is to read quality, not to short reads (only 0.6% of its pairs are shorter than the cut). Its reads were also trimmed to mixed lengths, and every pair was in reverse orientation. It is the one case where the other tool was ahead: AmpliTrim chose a cut 6 nt longer, which cost about a point.
 
 Merging is a tie: only mock community B (+2.6) is beyond the 2-point margin we set in advance, and the two datasets used in development (mock A and soil V4) both tied. The gains are in the other rows.
 
@@ -102,10 +102,10 @@ Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for am
 | Setting | How |
 |---|---|
 | `truncLenF`, `truncLenR` | The shortest total that can merge your longest amplicons (the amplicon plus 12), split between the two reads where quality allows. Real merges are tested with vsearch |
-| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)) |
+| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)) |
 | `minOverlap` | 12 (DADA2's default) |
 
-The outputs are `REPORT.md` (read this one), `summary.json` (for scripts; [every key](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#summaryjson-for-scripts-and-workflow-managers)) and `summary.png` (a figure of your amplicon lengths and how errors build up).
+The outputs are `REPORT.md` (read this one), `summary.json` (for scripts; [every key](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#summaryjson-for-scripts-and-workflow-managers)) and, if matplotlib is installed (`pip install ".[plot]"`), `summary.png` (a figure of your amplicon lengths and how errors build up).
 
 ## Limits
 

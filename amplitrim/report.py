@@ -7,13 +7,11 @@ import json
 from pathlib import Path
 from typing import List
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
 from . import __version__
 from .config import ee_pair
-from .pipeline import RULE_CAP, RULE_Q, Result
+from .pipeline import RULE_Q, WARN_ABOVE, Result
+
+plt = None                      # matplotlib.pyplot, loaded by _pyplot() when matplotlib is installed (pip install "amplitrim[plot]")
 
 
 def _fmt(x) -> str:
@@ -57,12 +55,11 @@ def _maxee_note(res: Result, short: bool = False) -> str:
     if res.relaxed:
         had = "none of the read pairs pass" if not res.pass_rate_default else f"only {res.pass_rate_default:.0%} of the read pairs pass"
         if short:
-            return (f"maxEE is {ee}, not 2: {had} at maxEE 2; each limit covers three quarters of the reads in its direction (never above {RULE_CAP}).")
-        cap = f", and the limit was capped at {RULE_CAP}" if rule["capped"] else ""
+            return (f"maxEE is {ee}, not 2: {had} at maxEE 2; each limit covers three quarters of the reads in its direction (never below 2).")
         return (f"maxEE is {ee}, not DADA2's default of 2: at the recommended cut the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward and {pr:.1f} "
-                f"reverse, so each read's limit is set to cover three quarters of the reads in its direction (never below 2, never above {RULE_CAP}{cap}). {had[0].upper() + had[1:]} at maxEE 2 and "
-                f"{r.ee_pass_rate:.0%} pass now; the reads this admits are noisier (see the table below). DADA2's author says that relaxing maxEE somewhat is acceptable because "
-                f"DADA2's error model uses the quality scores; the {RULE_Q * 100:.0f}th percentile and the cap of {RULE_CAP} are AmpliTrim's own and were chosen after seeing the validation data. In a DADA2 test on five datasets this rule merged about as many pairs as relaxing to (2,5), and fewer on three of them (see 'How maxEE is chosen' in the user guide).")
+                f"reverse, so each read's limit is set to cover three quarters of the reads in its direction (never below 2). {had[0].upper() + had[1:]} at maxEE 2 and "
+                f"{r.ee_pass_rate:.0%} pass now; the reads this admits are noisier (see the table below). DADA2's author says that relaxing maxEE somewhat is acceptable, "
+                f"because DADA2's error model uses the quality scores. The rule is AmpliTrim's own and has not been tested on independent data (see 'How maxEE is chosen' in the user guide).")
     if tuple(rule["max_ee"]) == (2, 2):
         return (f"maxEE is 2, DADA2's default: at the recommended cut the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward and {pr:.1f} reverse, both under 2, "
                 f"so the default already covers three quarters of the reads in each direction; {r.ee_pass_rate:.0%} of the read pairs pass.")
@@ -236,7 +233,23 @@ def screen_summary(res: Result, report_path: Path) -> List[str]:
     if res.warnings:
         lines += [""] + [f"Warning: {w}" for w in res.warnings]
     lines += ["", f"Report: {report_path}"]
+    if _pyplot() is None:
+        lines += ['No figure was drawn: matplotlib is not installed (pip install "amplitrim[plot]").']
     return lines
+
+
+def _pyplot():
+    """matplotlib is optional: without it the report and summary.json are written and there is no figure."""
+    global plt
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as _plt
+    except ImportError:
+        plt = None
+        return None
+    plt = _plt
+    return plt
 
 
 def _figure_its(res: Result, path: Path) -> None:
@@ -253,9 +266,13 @@ def _figure_its(res: Result, path: Path) -> None:
     plt.close(fig)
 
 
-def _figure(res: Result, path: Path) -> None:
+def _figure(res: Result, path: Path) -> bool:
+    """Draw summary.png; False when matplotlib is not installed."""
+    if not _pyplot():
+        return False
     if res.marker == "its":
-        return _figure_its(res, path)
+        _figure_its(res, path)
+        return True
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16, 4))
     r = res.recommendation
 
@@ -330,6 +347,7 @@ def _figure(res: Result, path: Path) -> None:
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+    return True
 
 
 def _share_shorter(res: Result) -> float:
@@ -395,9 +413,8 @@ def _split_sources(res: Result) -> str:
 
 # Limits that both reports state, written once so that the two cannot drift apart.
 _LIMIT_ACCURACY = "- Only read quality and mergeability are assessed, not taxonomic accuracy."
-_LIMIT_DENOISING = ("- The yield is measured on the raw reads, before DADA2 denoises them. DADA2 cannot confirm a sequence it sees "
-                    "about once, so in diverse samples (soil, for example) at modest depth the share of reads DADA2 keeps can be "
-                    "far lower than this estimate. Use it to compare settings, not as the final retained fraction.")
+_LIMIT_DENOISING = ("- The yield is measured on the raw reads, before DADA2 denoises them. In diverse samples (soil, for example) at modest "
+                    "depth DADA2 can keep far fewer reads than this estimate. Use it to compare settings, not as the final retained fraction.")
 _LIMIT_INPUT = "- The reads are assumed to have adapters and primers removed and no quality trimming."
 
 
@@ -450,7 +467,7 @@ def _its_loss_section(res: Result) -> List[str]:
     return out + [""]
 
 
-def _report_text_its(res: Result) -> str:
+def _report_text_its(res: Result, figure: bool = True) -> str:
     cfg, r = res.cfg, res.recommendation
     out = ["# AmpliTrim report", ""]
     if r is None:
@@ -481,8 +498,8 @@ def _report_text_its(res: Result) -> str:
     out += _its_loss_section(res)
     out += _its_ee_section(res)
     out += ["## Your data", ""] + _data_lines(res) + [""]
-    out += ["![summary](summary.png)", "",
-            "## How these settings were chosen", "",
+    out += ["![summary](summary.png)", ""] if figure else []
+    out += ["## How these settings were chosen", "",
             f"- {res.sub.n_pairs:,} of {res.sub.n_input_pairs:,} read pairs were analysed.",
             f"- No fixed truncation length is tested, as in DADA2's ITS workflow: each read is cut at its first base of quality 2 or "
             f"below (`truncQ = 2`), then the pair is kept if both reads are at least {res.min_len} nt, free of Ns "
@@ -498,9 +515,9 @@ def _report_text_its(res: Result) -> str:
     return "\n".join(out)
 
 
-def _report_text(res: Result) -> str:
+def _report_text(res: Result, figure: bool = True) -> str:
     if res.marker == "its":
-        return _report_text_its(res)
+        return _report_text_its(res, figure)
     cfg, r, sub = res.cfg, res.recommendation, res.sub
     out = ["# AmpliTrim report", ""]
     if r is None:
@@ -532,26 +549,19 @@ def _report_text(res: Result) -> str:
     out += _coverage_section(res)
     out += _ee_section(res)
     out += ["## Your data", ""] + _data_lines(res) + [""]
-    out += ["![summary](summary.png)", "",
-            "## How these settings were chosen", "",
-            f"- {sub.n_pairs:,} of {sub.n_input_pairs:,} read pairs were analysed.",
-            f"- Your longest amplicon is {res.longest_insert} nt, so the settings must keep at least "
-            f"{res.floor} nt in total ({res.longest_insert} plus the minimum overlap of {cfg.dada2_min_overlap}). "
-            f"Shorter totals are not tested.",
+    out += ["![summary](summary.png)", ""] if figure else []
+    out += ["## How these settings were chosen", "",
+            f"- {sub.n_pairs:,} of {sub.n_input_pairs:,} read pairs were analysed. Totals below {res.floor} nt (your longest amplicon plus the minimum overlap of "
+            f"{cfg.dada2_min_overlap}) were not tested.",
             f"- Totals were tested from {res.floor} nt in steps of {res.step} nt"
-            + (" up to the read limit" if res.exhaustive else ", stopping once the share of usable pairs stopped "
-                                                           "improving")
-            + f". For each total, {_split_sources(res)} were quality-filtered (maxEE {_ee_text(cfg.max_ee)}) and merged "
-            f"with vsearch.",
-            f"- Settings within {100 * res.tolerance:g} percentage point{'' if res.tolerance == 0.01 else 's'} of "
-            f"the best yield count as tied; the one with the shortest overlap was chosen.",
+            + (" up to the read limit" if res.exhaustive else ", stopping once the share of usable pairs stopped improving")
+            + f". For each, {_split_sources(res)} were quality-filtered (maxEE {_ee_text(cfg.max_ee)}) and merged with vsearch. Settings within "
+            f"{100 * res.tolerance:g} percentage point{'' if res.tolerance == 0.01 else 's'} of the best yield count as tied; the shortest overlap won.",
             "",
             "## Limits", "",
-            "- The estimates come from merging raw reads with vsearch, not from DADA2. With long overlaps (well "
-            "above 50 nt) DADA2's zero-mismatch rule can reject pairs that vsearch accepts, so the yield can "
-            "be several points optimistic. Run DADA2 once with these settings to confirm.",
-            "- Chimeras, and pairs that merge at the wrong offset, count as usable here, so the yield can be "
-            "optimistic. This is most likely when amplicons have repetitive overlaps.",
+            "- The estimates come from merging raw reads with vsearch, not from DADA2. With long overlaps (well above 50 nt) DADA2's zero-mismatch rule "
+            "can reject pairs that vsearch accepts, and chimeras or pairs that merge at the wrong offset count as usable here, so the yield can be "
+            "optimistic. Run DADA2 once with these settings to confirm.",
             _LIMIT_ACCURACY, _LIMIT_DENOISING, _LIMIT_INPUT, "",
             f"_AmpliTrim {__version__}_", ""]
     return "\n".join(out)
@@ -560,12 +570,12 @@ def _report_text(res: Result) -> str:
 def write_outputs(res: Result, out_dir: Path) -> Path:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    _figure(res, out_dir / "summary.png")
+    drawn = _figure(res, out_dir / "summary.png")
     r = res.recommendation
     (out_dir / "summary.json").write_text(encoding="utf-8", data=json.dumps({
         "schema_version": 1,                                  # keys may be added within a version, never removed or renamed
         **({"its": res.its_loss} if res.its_loss else {}),
-        "maxEE_rule": {"relaxed": res.relaxed, "pass_rate_at_maxEE_2": res.pass_rate_default, "percentile": RULE_Q, "cap": RULE_CAP,
+        "maxEE_rule": {"relaxed": res.relaxed, "pass_rate_at_maxEE_2": res.pass_rate_default, "percentile": RULE_Q, "cap": None, "warn_above": WARN_ABOVE,
                        "cut_measured_at": None if res.rule is None else res.rule["cut"], "percentile_expected_errors": None if res.rule is None else res.rule["percentile"]},
         "recommended": None if r is None else {**_settings(res), "estimated_yield": round(r.yield_est, 4),
                                                "longest_mergeable_insert": r.max_mergeable_insert},
@@ -596,5 +606,5 @@ def write_outputs(res: Result, out_dir: Path) -> Path:
                              "expected_errors_added": None if x["add_f"] != x["add_f"] else [round(x["add_f"], 3), round(x["add_r"], 3)]}
                             for x in res.ee_table]} if res.ee_table else {})}, indent=2))
     path = out_dir / "REPORT.md"
-    path.write_text(_report_text(res), encoding="utf-8")
+    path.write_text(_report_text(res, drawn), encoding="utf-8")
     return path
