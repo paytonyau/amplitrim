@@ -46,13 +46,13 @@ def test_its_reads_that_mostly_fail_get_the_trim_advice_and_its_prediction(tmp_p
     res, report, summary = run_its(poor, tmp_path)
     t = res.trim_advice
     assert t is not None and res.pass_rate_default == pytest.approx(0.4, abs=0.05) and t["pass_rate_default"] == res.pass_rate_default
-    assert t["pass_rate"] > 0.95 and t["window"] == 4 and t["quality"] == 15 and t["checked"] is False
+    assert t["pass_rate"] > 0.95 and t["window"] == 4 and t["quality"] == 15 and t["checked"] is True
     assert res.cfg.max_ee == 2.0 and not res.relaxed and res.rule["max_ee"][1] > 2                        # maxEE stays 2 for the trimmed reads; the rule is the second option
-    assert "## Trim the poor read ends first" in report and "amplitrim trim INPUT_DIR TRIMMED_DIR" in report and "not yet checked against DADA2" in report
+    assert "## Trim the poor read ends first" in report and "amplitrim trim INPUT_DIR TRIMMED_DIR" in report and "checked against DADA2 on eleven ITS datasets" in report
     assert "second option is maxEE 2," in report and "for the reads after trimming their poor ends" in report
     screen = "\n".join(screen_summary(res, tmp_path / "REPORT.md"))
     assert "trim the poor read ends first" in screen and "amplitrim trim INPUT_DIR TRIMMED_DIR" in screen
-    assert summary["trim_advice"]["checked"] is False and summary["trim_advice"]["pass_rate"] > 0.95 and summary["recommended"]["maxEE"] == 2.0
+    assert summary["trim_advice"]["checked"] is True and summary["trim_advice"]["pass_rate"] > 0.95 and summary["recommended"]["maxEE"] == 2.0
 
 
 def test_a_16s_run_is_unchanged(reads, tmp_path):

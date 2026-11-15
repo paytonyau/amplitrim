@@ -8,7 +8,7 @@ mycobiome standard, the piglet isolates and mixes of Arfken et al. 2023, and the
 - `maxEE` is computed from the reads for ITS as well: the rule of 16S, measured on each read after DADA2's `truncQ = 2` cut (there is no common cut
   for ITS). On good reads it gives 2,2; on noisy reads that still mostly pass it relaxes maxEE, and the analysis is repeated at it.
 - When fewer than half the read pairs pass DADA2's filter at maxEE 2,2, the report advises trimming the poor read ends first and predicts the effect.
-  The prediction is not yet checked against DADA2, and the report says so.
+  The predicted pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points) (validation archive, register sections 41 and 42).
 - `amplitrim trim INPUT_DIR OUTPUT_DIR` cuts each read before the first window of 4 bases whose mean quality is below 15 (the tested values;
   `--window` and `--quality` change them, untested). It writes `amplitrim_trim.json` with what was cut.
 - The ITS report has a section on what is not advised (raising `truncQ` or `maxMismatch`, choosing settings by the number of ASVs, and the

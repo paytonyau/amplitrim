@@ -106,7 +106,7 @@ def _trim_section(res: Result) -> List[str]:
             "```", "amplitrim trim INPUT_DIR TRIMMED_DIR", "```", "",
             f"Each read is cut before the first window of {t['window']} bases whose mean quality is below {t['quality']:g}; a read with no such window is kept whole.",
             f"For your reads, AmpliTrim predicts that after the trim **{t['pass_rate']:.0%}** of the pairs pass the filter at maxEE 2,2 and about "
-            f"**{t['yield_est']:.0%}** pass and merge. This prediction is not yet checked against DADA2.", "",
+            f"**{t['yield_est']:.0%}** pass and merge. The pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points); the yield, as always, is an upper bound.", "",
             "In the validation (three fungal mock communities, register sections 33 to 40) this trim kept many more pairs where fewer than half passed "
             "(26% to 83% of the pairs on the ATCC standard's ITS2), found members that maxEE 2,2 had lost, and added no false sequences; it was safe on "
             "well-passing data as well, where it gained less. A stronger trim (mean quality 20 or 25) was not safe.", ""]
@@ -288,7 +288,7 @@ def screen_summary(res: Result, report_path: Path) -> List[str]:
         t = res.trim_advice
         lines += ["", f"  Only {t['pass_rate_default']:.0%} of the pairs pass at maxEE 2,2: trim the poor read ends first, then use these settings:",
                   "      amplitrim trim INPUT_DIR TRIMMED_DIR",
-                  f"  Predicted after the trim: {t['pass_rate']:.0%} pass the filter, about {t['yield_est']:.0%} pass and merge (not yet checked against DADA2)."]
+                  f"  Predicted after the trim: {t['pass_rate']:.0%} pass the filter, about {t['yield_est']:.0%} pass and merge (the pass rate is checked against DADA2)."]
     if res.warnings:
         lines += [""] + [f"Warning: {w}" for w in res.warnings]
     lines += ["", f"Report: {report_path}"]

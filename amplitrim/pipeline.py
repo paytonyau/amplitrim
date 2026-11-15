@@ -373,8 +373,8 @@ def _rule_its(pairs: ReadPairs, min_len: int) -> Optional[dict]:
 
 def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
     """What the sliding-window trim (amplitrim trim, window 4, mean quality 15) is expected to give: the analysed read pairs are trimmed as the command
-    trims them, then filtered as DADA2's no-truncLen filter at maxEE 2,2 and merged as for any ITS data. This prediction is not yet checked against
-    DADA2 (marked as such in the report)."""
+    trims them, then filtered as DADA2's no-truncLen filter at maxEE 2,2 and merged as for any ITS data. The predicted pass rate was checked against
+    DADA2 on eleven ITS datasets, the largest difference 0.11 points (validation archive, register sections 41 and 42); the yield is an upper bound."""
     from .trim import trim_file, WINDOW, QUALITY
     t1, t2 = work / "trimmed_sw" / "R1.fastq", work / "trimmed_sw" / "R2.fastq"
     trim_file(first.sub.r1, t1)
@@ -386,7 +386,7 @@ def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
     for f in (o1, o2, t1, t2):
         f.unlink(missing_ok=True)
     return {"window": WINDOW, "quality": QUALITY, "below": TRIM_ADVICE_BELOW, "pass_rate_default": first.pass_rate_default,
-            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": False}
+            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": True}
 
 
 def _rule_cut(pairs: ReadPairs, first: "Result") -> Optional[tuple]:
