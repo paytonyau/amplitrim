@@ -212,6 +212,23 @@ AmpliTrim recommends `maxEE` as well as the truncation, in two steps. It first f
 
 **ITS (0.3).** ITS reads are not cut at a common position, so the rule is measured on each read after DADA2's `truncQ = 2` cut (the read stops before its first base of quality 2 or below), over the reads that keep at least `minLen` bases, with the same percentile and rounding. On good reads it gives 2,2. When fewer than half the pairs pass at 2,2, AmpliTrim advises trimming the poor read ends first and keeps maxEE at 2 for the trimmed reads (after the trim the rule gives 2); the rule on the untrimmed reads is reported as a second option. Both were tested on three fungal mock communities in the validation archive (register sections 33 to 40): the rule and the trim were safe on all three, and the trim found more of the expected members. The 50% line is a guide to when the trim helps most, not a safety limit.
 
+## Settings you can set yourself (0.4)
+
+AmpliTrim chooses every setting from your reads, but you can set any of them; the report then works with your value and says so ("Settings you chose"), naming the tested value where it differs. `summary.json` lists them under `settings_given`.
+
+| Option | DADA2 setting | Default (tested) |
+|---|---|---|
+| `--max-ee F[,R]` | `maxEE` | computed from the reads |
+| `--trunc-len F,R` | `truncLen` (16S; that cut is evaluated instead of searched) | searched |
+| `--trunc-q Q` | `truncQ` | 2 |
+| `--min-len N` | `minLen` (with `--its`) | 50 |
+| `--max-mismatch N` | `mergePairs(maxMismatch)` | 0 |
+| `--max-pairs N` | (the read pairs analysed) | 50,000 |
+| `--trim-window N`, `--trim-quality Q` | the trim AmpliTrim advises and predicts (with `--its`) | 4 and 15 |
+| `--trim-advice-below SHARE` | when the trim is advised (with `--its`) | 0.5 |
+
+`truncQ` above 2 lost true members on ITS mock communities, and `maxMismatch` above 0 let false sequences through (validation archive, sections 26 to 36): set them only with a reason.
+
 ## Trimming poor ITS read ends (`amplitrim trim`)
 
 ```

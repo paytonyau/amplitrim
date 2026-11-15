@@ -86,14 +86,26 @@ def _maxee_note_its(res: Result, short: bool = False) -> str:
         had = "none of the read pairs pass" if not res.pass_rate_default else f"only {res.pass_rate_default:.0%} of the read pairs pass"
         if short:
             return f"maxEE is {ee}, not 2: {had} at maxEE 2. Each limit lets the best three quarters of the reads in its direction pass."
-        return (f"maxEE is {ee}, not DADA2's default of 2: after DADA2's truncQ = 2 cut, the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is "
+        return (f"maxEE is {ee}, not DADA2's default of 2: after DADA2's truncQ = {res.trunc_q} cut, the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is "
                 f"{pf:.1f} forward and {pr:.1f} reverse, so each limit covers three quarters of the reads in its direction (never below 2). {had[0].upper() + had[1:]} "
                 f"at maxEE 2 and {r.ee_pass_rate:.0%} pass now. This rule was safe on three fungal mock communities in the validation (register sections 35 to 40).")
     if tuple(rule["max_ee"]) == (2, 2):
-        return (f"maxEE is 2, DADA2's default: after DADA2's truncQ = 2 cut, the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward "
+        return (f"maxEE is 2, DADA2's default: after DADA2's truncQ = {res.trunc_q} cut, the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward "
                 f"and {pr:.1f} reverse, both under 2, so the default already covers three quarters of the reads; {r.ee_pass_rate:.0%} of the read pairs pass.")
     return (f"maxEE stays 2: the rule would set {rule['max_ee'][0]},{rule['max_ee'][1]} (the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} "
             f"forward and {pr:.1f} reverse), but no read pairs merged at that setting.")
+
+
+def _given_section(res: Result) -> List[str]:
+    """0.4: the settings the user chose, each against the value AmpliTrim's validation tested."""
+    if not res.given:
+        return []
+    one = lambda x: f"{x:g}" if isinstance(x, float) else str(x)
+    fmt = lambda v: ",".join(one(x) for x in v) if isinstance(v, tuple) else one(v)
+    lines = []
+    for name, (v, tested) in res.given.items():
+        lines.append(f"- {name} = {fmt(v)}: " + ("given by you instead of computed by AmpliTrim." if tested is None else f"not the tested value ({fmt(tested)}); results at this value are untested."))
+    return ["## Settings you chose", ""] + lines + [""]
 
 
 def _trim_section(res: Result) -> List[str]:
@@ -103,10 +115,10 @@ def _trim_section(res: Result) -> List[str]:
     return ["## Trim the poor read ends first", "",
             f"Only **{t['pass_rate_default']:.0%}** of the read pairs pass DADA2's filter at maxEE 2,2 as they are (AmpliTrim advises the trim below "
             f"{t['below']:.0%}). Cut the poor read ends first, then run DADA2 on the trimmed files with the settings above:", "",
-            "```", "amplitrim trim INPUT_DIR TRIMMED_DIR", "```", "",
+            "```", "amplitrim trim INPUT_DIR TRIMMED_DIR" + ("" if (t["window"], t["quality"]) == (4, 15) else f" --window {t['window']} --quality {t['quality']:g}"), "```", "",
             f"Each read is cut before the first window of {t['window']} bases whose mean quality is below {t['quality']:g}; a read with no such window is kept whole.",
             f"For your reads, AmpliTrim predicts that after the trim **{t['pass_rate']:.0%}** of the pairs pass the filter at maxEE 2,2 and about "
-            f"**{t['yield_est']:.0%}** pass and merge. The pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points); the yield, as always, is an upper bound.", "",
+            f"**{t['yield_est']:.0%}** pass and merge. " + ("The pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points); the yield, as always, is an upper bound." if t["checked"] else "At the settings you chose, this prediction is not checked against DADA2 (it was checked at window 4, quality 15, truncQ 2 and minLen 50)."), "",
             "In the validation (three fungal mock communities, register sections 33 to 40) this trim kept many more pairs where fewer than half passed "
             "(26% to 83% of the pairs on the ATCC standard's ITS2), found members that maxEE 2,2 had lost, and added no false sequences; it was safe on "
             "well-passing data as well, where it gained less. A stronger trim (mean quality 20 or 25) was not safe.", ""]
@@ -256,7 +268,7 @@ def _settings(res: Result) -> dict:
     r = res.recommendation
     ee_f, ee_r = ee_pair(res.cfg.max_ee)                      # maxEE is one number when both reads share it and a pair otherwise; maxEE_f and maxEE_r are always numbers
     out = {"truncLenF": r.trim_f, "truncLenR": r.trim_r, "maxEE": res.cfg.max_ee, "maxEE_f": ee_f, "maxEE_r": ee_r,
-           "minOverlap": res.cfg.dada2_min_overlap, "maxMismatch": res.cfg.dada2_max_mismatch}
+           "minOverlap": res.cfg.dada2_min_overlap, "maxMismatch": res.cfg.dada2_max_mismatch, "truncQ": res.trunc_q}
     if res.marker == "its":
         out["minLen"] = res.min_len
     return out
@@ -284,6 +296,10 @@ def screen_summary(res: Result, report_path: Path) -> List[str]:
                  f"  Covers amplicons up to {r.max_mergeable_insert} nt (your longest: {res.longest_insert} nt)."]
     if r is not None and res.relaxed:
         lines += ["", "  " + _maxee_note(res, short=True)]
+    if res.given:
+        one = lambda x: f"{x:g}" if isinstance(x, float) else str(x)
+        lines += ["", "  You set: " + "; ".join(f"{k} = {','.join(one(x) for x in v) if isinstance(v, tuple) else one(v)}" for k, (v, _) in res.given.items())
+                  + " (untested values are marked in the report)."]
     if r is not None and res.trim_advice:
         t = res.trim_advice
         lines += ["", f"  Only {t['pass_rate_default']:.0%} of the pairs pass at maxEE 2,2: trim the poor read ends first, then use these settings:",
@@ -541,18 +557,19 @@ def _report_text_its(res: Result, figure: bool = True) -> str:
             f"| **0 (none)** | **0 (none)** | {_ee_text(s['maxEE'])} | {s['minLen']} | {s['minOverlap']} |", "",
             "In DADA2 (R):", "", "```r",
             "out <- filterAndTrim(fwd, filtF, rev, filtR, maxN = 0,",
-            f"                     maxEE = c({_ee_f(s['maxEE'])}, {_ee_r(s['maxEE'])}), truncQ = 2, minLen = {s['minLen']})",
+            f"                     maxEE = c({_ee_f(s['maxEE'])}, {_ee_r(s['maxEE'])}), truncQ = {s['truncQ']}, minLen = {s['minLen']})",
             "# ... learnErrors(), dada() ...",
             f"merged <- mergePairs(dadaF, filtF, dadaR, filtR, minOverlap = {s['minOverlap']}, "
             f"maxMismatch = {s['maxMismatch']})", "```", "",
             "In QIIME 2:", "", "```",
             f"qiime dada2 denoise-paired ... --p-trunc-len-f 0 --p-trunc-len-r 0 \\\n    --p-max-ee-f {_ee_f(s['maxEE'])} "
-            f"--p-max-ee-r {_ee_r(s['maxEE'])}", "```", "",
+            f"--p-max-ee-r {_ee_r(s['maxEE'])}" + ("" if s['truncQ'] == 2 else f" --p-trunc-q {s['truncQ']}"), "```", "",
             "## What to expect", "",
             f"- About **{r.yield_est:.1%}** of read pairs should pass quality filtering and merge: "
             f"{r.ee_pass_rate:.1%} pass the filter, and {r.merge_rate_tolerant:.1%} of those merge.",
             f"- {_maxee_note(res)}", ""]
         out += _trim_section(res)
+    out += _given_section(res)
     if res.warnings:
         out += ["## Things to check", ""] + [f"- {w}" for w in res.warnings] + [""]
     out += _its_not_advised() if r is not None else []
@@ -595,18 +612,19 @@ def _report_text(res: Result, figure: bool = True) -> str:
             "In DADA2 (R):", "", "```r",
             "out <- filterAndTrim(fwd, filtF, rev, filtR,",
             f"                     truncLen = c({s['truncLenF']}, {s['truncLenR']}), "
-            f"maxEE = c({_ee_f(s['maxEE'])}, {_ee_r(s['maxEE'])}), truncQ = 2, maxN = 0)",
+            f"maxEE = c({_ee_f(s['maxEE'])}, {_ee_r(s['maxEE'])}), truncQ = {s['truncQ']}, maxN = 0)",
             "# ... learnErrors(), dada() ...",
             f"merged <- mergePairs(dadaF, filtF, dadaR, filtR, minOverlap = {s['minOverlap']}, "
             f"maxMismatch = {s['maxMismatch']})", "```", "",
             "In QIIME 2:", "", "```",
             f"qiime dada2 denoise-paired ... --p-trunc-len-f {s['truncLenF']} --p-trunc-len-r "
-            f"{s['truncLenR']} \\\n    --p-max-ee-f {_ee_f(s['maxEE'])} --p-max-ee-r {_ee_r(s['maxEE'])}", "```", "",
+            f"{s['truncLenR']} \\\n    --p-max-ee-f {_ee_f(s['maxEE'])} --p-max-ee-r {_ee_r(s['maxEE'])}" + ("" if s['truncQ'] == 2 else f" --p-trunc-q {s['truncQ']}"), "```", "",
             "## What to expect", "",
             f"- About **{r.yield_est:.1%}** of read pairs should pass quality filtering and merge.",
             f"- Your longest amplicon is {res.longest_insert} nt. These settings can merge amplicons up to "
             f"{r.max_mergeable_insert} nt, so your whole length range is covered.",
             f"- {_maxee_note(res)}", ""]
+    out += _given_section(res)
     if res.warnings:
         out += ["## Things to check", ""] + [f"- {w}" for w in res.warnings] + [""]
     out += _coverage_section(res)
@@ -640,8 +658,9 @@ def write_outputs(res: Result, out_dir: Path) -> Path:
         **({"its": res.its_loss} if res.its_loss else {}),
         "maxEE_rule": {"relaxed": res.relaxed, "pass_rate_at_maxEE_2": res.pass_rate_default, "percentile": RULE_Q, "cap": None, "warn_above": WARN_ABOVE,
                        "cut_measured_at": None if res.rule is None else res.rule["cut"], "percentile_expected_errors": None if res.rule is None else res.rule["percentile"],
-                       "measured_on": "reads after the truncQ = 2 cut" if res.marker == "its" else "reads at the cut",
+                       "measured_on": f"reads after the truncQ = {res.trunc_q} cut" if res.marker == "its" else "reads at the cut",
                        "computed_max_ee": None if res.rule is None else res.rule["max_ee"]},
+        **({"settings_given": {k: {"value": list(v[0]) if isinstance(v[0], tuple) else v[0], "tested": v[1]} for k, v in res.given.items()}} if res.given else {}),
         **({"trim_advice": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in res.trim_advice.items()}} if res.trim_advice else {}),
         "recommended": None if r is None else {**_settings(res), "estimated_yield": round(r.yield_est, 4),
                                                "longest_mergeable_insert": r.max_mergeable_insert},

@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use AmpliTrim, please cite it as below."
 title: "AmpliTrim: choosing DADA2 truncation lengths and maxEE from the reads themselves"
 type: software
-version: "0.3.0"
+version: "0.4.0"
 doi: "10.5281/zenodo.23860406"
 date-released: "2026-11-15"
 license: MIT

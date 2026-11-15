@@ -144,7 +144,7 @@ footer p{margin:.2rem 0}
 <div class="codeblock copyable"><pre><code>pip install amplitrim      # Python 3.9 or later; vsearch must also be on your PATH
 amplitrim --input-dir reads/ --work-dir work --out-dir report</code></pre></div>
 <p>Example output (from simulated reads; your numbers will differ):</p>
-<div class="codeblock"><pre><code>AmpliTrim 0.3.0
+<div class="codeblock"><pre><code>AmpliTrim 0.4.0
 Analysing reads...
 
 Recommended DADA2 settings
@@ -165,7 +165,7 @@ amplitrim --input-dir demo/primer_trimmed --work-dir work --out-dir out</code></
 <li><strong>Primers and adapters already removed</strong> (for example with cutadapt), and no quality trimming. R1 must be the forward read (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#input">details</a>).</li>
 </ul>
 <h3>Options</h3>
-<p>Required: <code>--input-dir</code>, <code>--work-dir</code> and <code>--out-dir</code>. Optional: <code>--its</code> (for amplicons that vary a lot in length, such as ITS), <code>--min-overlap</code> (the minimum overlap between the reads, 12 to 20; default 12) and <code>--verbose</code>. A second command, <code>amplitrim trim</code>, cuts the poor ends of ITS reads (below). AmpliTrim chooses everything else, including <code>maxEE</code> (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments">user guide</a>).</p>
+<p>Required: <code>--input-dir</code>, <code>--work-dir</code> and <code>--out-dir</code>. Optional: <code>--its</code> (for amplicons that vary a lot in length, such as ITS), <code>--min-overlap</code> (the minimum overlap between the reads, 12 to 20; default 12) and <code>--verbose</code>. A second command, <code>amplitrim trim</code>, cuts the poor ends of ITS reads (below). Every DADA2 setting can also be set yourself (<code>--max-ee</code>, <code>--trunc-len</code>, <code>--trunc-q</code>, <code>--min-len</code>, <code>--max-mismatch</code> and others); the report marks any value that differs from the tested one. AmpliTrim chooses everything else, including <code>maxEE</code> (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments">user guide</a>).</p>
 </section>
 
 <section class="wrap" id="how">
@@ -198,7 +198,7 @@ amplitrim --input-dir demo/primer_trimmed --work-dir work --out-dir out</code></
 </section>
 </main>
 <footer><div class="wrap">
-<p>AmpliTrim 0.3.0 · <a href="https://github.com/paytonyau/amplitrim">Source on GitHub</a> · <a href="https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md">Validation page</a> · <a href="https://github.com/paytonyau/amplitrim/issues">Report an issue</a></p>
+<p>AmpliTrim 0.4.0 · <a href="https://github.com/paytonyau/amplitrim">Source on GitHub</a> · <a href="https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md">Validation page</a> · <a href="https://github.com/paytonyau/amplitrim/issues">Report an issue</a></p>
 <p>By <a href="https://orcid.org/0000-0002-3283-0370">Payton (Tung On) Yau</a>.</p>
 </div></footer>
 <script>

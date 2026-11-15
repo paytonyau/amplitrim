@@ -51,6 +51,33 @@ class Settings:
     explore_max_ee: bool = False    # also find the best truncation for several maxEE values and show where retention levels off
     marker: str = "16s"             # 16s: search truncation lengths; its: no fixed truncation length, each read cut at its first base of Q2 or below (DADA2's ITS workflow; the command line's --its)
     min_len: int = 50               # minLen, used with the its marker
+    # 0.4: every DADA2 setting can be set; the defaults are the tested values, and the report marks a value that differs as untested
+    trunc_q: int = 2                # DADA2's truncQ
+    max_mismatch: int = 0           # mergePairs maxMismatch
+    trunc_len: Optional[tuple] = None   # 16S: (forward, reverse) to evaluate that cut instead of searching
+    trim_window: int = 4            # ITS: the window of the trim that is advised and predicted (amplitrim trim)
+    trim_quality: float = 15.0      # ITS: its mean quality
+    trim_advice_below: float = 0.5  # ITS: the trim is advised when fewer than this share of pairs pass at maxEE 2,2
+
+TESTED = {"min_overlap": 12, "trunc_q": 2, "max_mismatch": 0, "min_len": 50, "trim_window": 4, "trim_quality": 15.0, "trim_advice_below": 0.5,
+          "max_pairs": DEFAULT_MAX_PAIRS}
+NAMES = {"min_overlap": "minOverlap", "trunc_q": "truncQ", "max_mismatch": "maxMismatch", "min_len": "minLen", "trim_window": "the trim's window",
+         "trim_quality": "the trim's mean quality", "trim_advice_below": "the share below which the trim is advised", "max_pairs": "the read pairs analysed"}
+
+
+def given_settings(s: "Settings") -> dict:
+    """The settings the user changed from AmpliTrim's own: {name: (value, the tested value, or None where AmpliTrim computes it)}.
+    minOverlap 12 to 20 was tested (section 27 of the validation archive), so a value in that range is not marked."""
+    out = {}
+    for k, tested in TESTED.items():
+        v = getattr(s, k)
+        if v != tested and not (k == "min_overlap" and 12 <= v <= 20):
+            out[NAMES[k]] = (v, tested)
+    if s.max_ee is not None:
+        out["maxEE"] = (s.max_ee, None)
+    if s.trunc_len is not None:
+        out["truncLen"] = (tuple(s.trunc_len), None)
+    return out
 
 
 @dataclass
@@ -76,7 +103,9 @@ class Result:
     rule: Optional[dict] = None                            # what the rule measured: the cut, the percentile of the expected errors, the raw and the final limits
     its_loss: Optional[dict] = None                        # ITS only: where the pairs go (shares of the pairs analysed) and the share a forward-reads-only analysis would keep
     pass_rate_default: Optional[float] = None              # the share of pairs that pass at maxEE 2 with the best truncation at that maxEE
-    trim_advice: Optional[dict] = None                     # ITS only: fewer than TRIM_ADVICE_BELOW pass at maxEE 2,2, so trimming the poor read ends is advised, with its predicted effect
+    trim_advice: Optional[dict] = None
+    trunc_q: int = 2                                       # DADA2's truncQ used (0.4)
+    given: dict = field(default_factory=dict)              # the settings the user changed (0.4): name -> (value, tested value or None)                     # ITS only: fewer than TRIM_ADVICE_BELOW pass at maxEE 2,2, so trimming the poor read ends is advised, with its predicted effect
     coverage_search: list = field(default_factory=list)   # with explore_coverage (Python interface only): the best setting for several coverage levels
     min_retention: float = 0.5
     error_profile: object = None                           # expected errors along the reads, for the report's figure
@@ -194,7 +223,7 @@ def _run_its(s: Settings, cfg: Config, sub: SubsampleInfo, inserts: List[int], f
              say: Callable[[str], None]) -> Result:
     """ITS: amplicon lengths vary, so DADA2's workflow does not truncate. Evaluate exactly that: each read
     is cut at its first low-quality base, then kept if long enough, free of Ns and within maxEE."""
-    pairs = ReadPairs.load(sub.r1, sub.r2)
+    pairs = ReadPairs.load(sub.r1, sub.r2, s.trunc_q)
     o1, o2 = work / "trimmed" / "its_R1.fastq", work / "trimmed" / "its_R2.fastq"
     st = pairs.filter_untruncated(o1, o2, cfg.max_ee, s.min_len)
     nan = float("nan")
@@ -223,6 +252,7 @@ def _run_its(s: Settings, cfg: Config, sub: SubsampleInfo, inserts: List[int], f
                  exhaustive=s.exhaustive, tolerance=tol, marker="its", min_len=s.min_len)
     res.candidates = [cand]
     res.recommendation = cand if cand.yield_est > 0 else None
+    res.trunc_q, res.given = s.trunc_q, given_settings(s)
     n = max(1, int(pairs.n))
     res.its_loss = {"pairs": int(pairs.n), "too_short": float(short.sum()) / n, "has_n": float(has_n.sum()) / n, "over_maxEE": float(ee_fail.sum()) / n,
                     "pass": float(kept.sum()) / n, "pass_not_merged": max(0.0, float(kept.sum()) / n - cand.yield_est), "pass_and_merged": cand.yield_est,
@@ -377,16 +407,17 @@ def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
     DADA2 on eleven ITS datasets, the largest difference 0.11 points (validation archive, register sections 41 and 42); the yield is an upper bound."""
     from .trim import trim_file, WINDOW, QUALITY
     t1, t2 = work / "trimmed_sw" / "R1.fastq", work / "trimmed_sw" / "R2.fastq"
-    trim_file(first.sub.r1, t1)
-    trim_file(first.sub.r2, t2)
-    pairs = ReadPairs.load(t1, t2)
+    trim_file(first.sub.r1, t1, s.trim_window, s.trim_quality)
+    trim_file(first.sub.r2, t2, s.trim_window, s.trim_quality)
+    pairs = ReadPairs.load(t1, t2, s.trunc_q)
     o1, o2 = work / "trimmed" / "sw_R1.fastq", work / "trimmed" / "sw_R2.fastq"
     st = pairs.filter_untruncated(o1, o2, 2.0, s.min_len)
     merge = run_vsearch(o1, o2, work / "merge", "sw", first.cfg.dada2_min_overlap, None, "tolerant", keep_merged=False).merge_rate if st.n_out > 0 else 0.0
     for f in (o1, o2, t1, t2):
         f.unlink(missing_ok=True)
-    return {"window": WINDOW, "quality": QUALITY, "below": TRIM_ADVICE_BELOW, "pass_rate_default": first.pass_rate_default,
-            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": True}
+    tested = (s.trim_window, s.trim_quality, s.trunc_q, s.min_len) == (WINDOW, QUALITY, 2, 50)       # the prediction was checked at these (section 42)
+    return {"window": s.trim_window, "quality": s.trim_quality, "below": s.trim_advice_below, "pass_rate_default": first.pass_rate_default,
+            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": tested}
 
 
 def _rule_cut(pairs: ReadPairs, first: "Result") -> Optional[tuple]:
@@ -410,13 +441,14 @@ def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     if s.max_ee is not None:
         return _run_once(s, say)
     first = _run_once(replace(s, max_ee=2.0), say)
+    first.given = given_settings(s)                                             # the user's settings, not the maxEE 2 of this first analysis
     r = first.recommendation
     first.pass_rate_default = None if r is None else r.ee_pass_rate
     if first.marker == "its":
         return _run_its_rules(first, s, say)
     if first.floor > first.max_combined:                                       # when the reads cannot span the amplicons, maxEE cannot help
         return first
-    pairs = ReadPairs.load(first.sub.r1, first.sub.r2)
+    pairs = ReadPairs.load(first.sub.r1, first.sub.r2, s.trunc_q)
     cut = _rule_cut(pairs, first)
     rule = None if cut is None else _rule_max_ee(pairs, *cut)
     first.rule = rule
@@ -429,6 +461,7 @@ def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     if second.recommendation is None:                                         # relaxing did not help: report maxEE 2 as it is
         return first
     second.relaxed, second.pass_rate_default, second.rule = True, first.pass_rate_default, rule
+    second.given = first.given                                                # maxEE was computed by the rule, not given
     if rule["above_warning"]:
         second.warnings.append(f"The rule sets maxEE {rule['max_ee'][0]},{rule['max_ee'][1]}, above {WARN_ABOVE}: these reads are very noisy; more low-quality reads may not help. "
                                f"Check on a mock community if you can.")
@@ -439,10 +472,10 @@ def _run_its_rules(first: Result, s: Settings, say: Callable[[str], None]) -> Re
     """ITS, after the analysis at maxEE 2,2: the trim advice, or the maxEE rule."""
     if first.recommendation is None:
         return first
-    pairs = ReadPairs.load(first.sub.r1, first.sub.r2)
+    pairs = ReadPairs.load(first.sub.r1, first.sub.r2, s.trunc_q)
     rule = _rule_its(pairs, s.min_len)
     first.rule = rule
-    if first.pass_rate_default is not None and first.pass_rate_default < TRIM_ADVICE_BELOW:
+    if first.pass_rate_default is not None and first.pass_rate_default < s.trim_advice_below:
         say(f"Only {first.pass_rate_default:.0%} of pairs pass at maxEE 2,2: predicting the sliding-window trim (window 4, mean quality 15)...")
         first.trim_advice = _its_after_trim(first, s, s.work_dir)
         return first
@@ -454,13 +487,15 @@ def _run_its_rules(first: Result, s: Settings, say: Callable[[str], None]) -> Re
     if second.recommendation is None:
         return first
     second.relaxed, second.pass_rate_default, second.rule = True, first.pass_rate_default, rule
+    second.given = first.given                                                # maxEE was computed by the rule, not given
     if rule["above_warning"]:
         second.warnings.append(f"The rule sets maxEE {rule['max_ee'][0]},{rule['max_ee'][1]}, above {WARN_ABOVE}: these reads are very noisy. Check on a mock community if you can.")
     return second
 
 
 def _run_once(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
-    cfg = Config(dada2_min_overlap=s.min_overlap, max_ee=2.0 if s.max_ee is None else s.max_ee, max_unmergeable_frac=s.max_unmergeable)
+    cfg = Config(dada2_min_overlap=s.min_overlap, max_ee=2.0 if s.max_ee is None else s.max_ee, max_unmergeable_frac=s.max_unmergeable,
+                 dada2_max_mismatch=s.max_mismatch)
     if shutil.which("vsearch") is None:
         raise PipelineError("vsearch was not found on PATH. Install it (https://github.com/torognes/vsearch).")
     if not 0 < s.min_retention <= 1:
@@ -471,6 +506,10 @@ def _run_once(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Res
         raise PipelineError("The minimum overlap must be at least 1 and maxEE greater than 0.")
     if s.marker not in ("16s", "its"):
         raise PipelineError(f"Unknown marker: {s.marker}")
+    if not 0 <= s.trunc_q <= 40 or s.max_mismatch < 0 or s.min_len < 1 or s.trim_window < 1 or not 0 <= s.trim_quality <= 60 or not 0 <= s.trim_advice_below <= 1:
+        raise PipelineError("truncQ must be 0 to 40, maxMismatch at least 0, minLen and the trim's window at least 1, its quality 0 to 60, and the advice share 0 to 1.")
+    if s.trunc_len is not None and (s.marker == "its" or len(s.trunc_len) != 2 or min(s.trunc_len) < 1):
+        raise PipelineError("truncLen is two lengths (forward, reverse), and only for amplicons of roughly one length (not with --its).")
     work, tol = s.work_dir, (cfg.yield_tolerance if s.yield_tolerance is None else s.yield_tolerance)
     check_vsearch_path(work)
 
@@ -512,8 +551,21 @@ def _run_once(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Res
         res.warnings = _warnings(res, bool(s.longest_insert))
         return res
 
-    pairs = ReadPairs.load(sub.r1, sub.r2)
-    res.recommendation = _search(res, pairs, cfg, s, work, say)
+    pairs = ReadPairs.load(sub.r1, sub.r2, s.trunc_q)
+    res.trunc_q, res.given = s.trunc_q, given_settings(s)
+    given_warnings = []
+    if s.trunc_len is not None:                                                 # 0.4: the user's cut, evaluated as the search evaluates its candidates
+        tf, tr = (int(x) for x in s.trunc_len)
+        if tf > sub.read_len_f or tr > sub.read_len_r:
+            raise PipelineError(f"truncLen {tf},{tr} is longer than the reads ({sub.read_len_f} and {sub.read_len_r} nt).")
+        say(f"Evaluating the truncLen you gave: {tf},{tr}")
+        cand = _evaluate(pairs, tf, tr, cfg, floor, work, "given", (sub.read_len_f, sub.read_len_r))
+        res.candidates, res.recommendation = [cand], cand
+        if tf + tr < floor:
+            given_warnings.append(f"The truncLen you gave ({tf}+{tr} = {tf + tr} nt) is shorter than the {floor} nt needed to merge your longest amplicons "
+                                  f"({longest} nt): the pairs of those amplicons cannot merge.")
+    else:
+        res.recommendation = _search(res, pairs, cfg, s, work, say)
     if res.recommendation is not None and not sub.uniform_length:
         r = res.recommendation
         res.short_lost = float(((pairs.len1 < r.trim_f) | (pairs.len2 < r.trim_r)).mean())
@@ -527,5 +579,5 @@ def _run_once(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Res
             say("Finding the best truncation for several maxEE values...")
             res.min_retention = s.min_retention
             res.ee_search = _ee_search(res, pairs, s, work)
-    res.warnings = _warnings(res, bool(s.longest_insert))
+    res.warnings = given_warnings + _warnings(res, bool(s.longest_insert))
     return res

@@ -27,6 +27,37 @@ def _overlap(text: str) -> int:
     return value
 
 
+def _max_ee(text: str):
+    """--max-ee 2 or --max-ee 2,4 (forward, reverse)."""
+    parts = [float(x) for x in text.split(",")]
+    if len(parts) not in (1, 2) or min(parts) <= 0:
+        raise argparse.ArgumentTypeError("one number, or forward,reverse, each above 0")
+    return parts[0] if len(parts) == 1 else tuple(parts)
+
+
+def _two_lengths(text: str):
+    """--trunc-len 240,200 (forward, reverse)."""
+    try:
+        f, r = (int(x) for x in text.split(","))
+    except ValueError:
+        raise argparse.ArgumentTypeError("two whole numbers, forward,reverse") from None
+    if min(f, r) < 1:
+        raise argparse.ArgumentTypeError("both lengths at least 1")
+    return (f, r)
+
+
+# 0.4: the settings a user can set, with the tested default named in the help; None = not given (AmpliTrim's own)
+SETTINGS = [("--max-ee", "max_ee", _max_ee, "F[,R]", "use this maxEE instead of the one AmpliTrim computes"),
+            ("--trunc-len", "trunc_len", _two_lengths, "F,R", "16S: evaluate this cut instead of searching (not with --its)"),
+            ("--trunc-q", "trunc_q", int, "Q", "DADA2's truncQ (default 2; other values untested)"),
+            ("--min-len", "min_len", int, "N", "DADA2's minLen, with --its (default 50; other values untested)"),
+            ("--max-mismatch", "max_mismatch", int, "N", "DADA2's mergePairs maxMismatch (default 0; others raised false sequences on ITS)"),
+            ("--max-pairs", "max_pairs", int, "N", "read pairs analysed, at most (default 50,000; 0 = all)"),
+            ("--trim-window", "trim_window", int, "N", "with --its: the window of the trim AmpliTrim advises and predicts (default 4)"),
+            ("--trim-quality", "trim_quality", float, "Q", "with --its: the trim's mean quality (default 15)"),
+            ("--trim-advice-below", "trim_advice_below", float, "SHARE", "with --its: advise the trim below this share passing at maxEE 2,2 (default 0.5)")]
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="amplitrim", description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="example:  amplitrim --input-dir reads --work-dir work --out-dir report")
@@ -45,6 +76,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help="minimum overlap in nt between the forward and reverse reads, 12 to 20 (default 12, DADA2's mergePairs default); "
                           "use the same value as the minOverlap of your DADA2 mergePairs call")
     opt.add_argument("--verbose", action="store_true", help="show progress and detailed messages")
+    dada2 = ap.add_argument_group("settings you can set yourself (0.4; the report marks a value other than the tested one)")
+    for flag, dest, kind, meta, text in SETTINGS:
+        dada2.add_argument(flag, dest=dest, type=kind, default=None, metavar=meta, help=text)
     return ap
 
 
@@ -57,8 +91,9 @@ def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(message)s")
     print(f"AmpliTrim {__version__}\nAnalysing reads...", flush=True)
     try:
+        given = {dest: getattr(args, dest) for _, dest, _, _, _ in SETTINGS if getattr(args, dest) is not None}
         result, report, _summary = recommend(args.input_dir, args.work_dir, args.out_dir, its=args.its, min_overlap=args.min_overlap,
-                                             say=(lambda msg: print(msg, flush=True)) if args.verbose else None)
+                                             say=(lambda msg: print(msg, flush=True)) if args.verbose else None, **given)
     except (PipelineError, RuntimeError) as err:
         print(f"Error: {err}", file=sys.stderr)
         return 3

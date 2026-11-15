@@ -55,8 +55,8 @@ def _first_n(seqs: List[str], width: int) -> np.ndarray:
     return np.where(is_n.any(axis=1), is_n.argmax(axis=1), width)
 
 
-def _first_low_quality(phred: np.ndarray) -> np.ndarray:
-    low = phred <= 2
+def _first_low_quality(phred: np.ndarray, trunc_q: int = 2) -> np.ndarray:
+    low = phred <= trunc_q
     return np.where(low.any(axis=1), low.argmax(axis=1), phred.shape[1])
 
 
@@ -125,7 +125,7 @@ def _cut_errors(phred: np.ndarray, lengths: np.ndarray, rows: np.ndarray, chunk:
 class ReadPairs:
     """A set of read pairs held in memory, filterable at any truncation lengths."""
 
-    def __init__(self, recs1, recs2):
+    def __init__(self, recs1, recs2, trunc_q: int = 2):
         self.recs1, self.recs2 = list(recs1), list(recs2)
         if len(self.recs1) != len(self.recs2):
             raise ValueError("R1 and R2 contain different numbers of reads")
@@ -135,14 +135,15 @@ class ReadPairs:
         self.width_f, self.width_r = int(self.len1.max(initial=0)), int(self.len2.max(initial=0))
         self._phred1 = _phred([r[3] for r in self.recs1], self.width_f)
         self._phred2 = _phred([r[3] for r in self.recs2], self.width_r)
-        self.low1, self.low2 = _first_low_quality(self._phred1), _first_low_quality(self._phred2)
+        self.trunc_q = trunc_q                                              # DADA2's truncQ: each read stops before its first base of quality truncQ or below (0.4: a setting)
+        self.low1, self.low2 = _first_low_quality(self._phred1, trunc_q), _first_low_quality(self._phred2, trunc_q)
         self.n1 = _first_n([r[1] for r in self.recs1], self.width_f)
         self.n2 = _first_n([r[1] for r in self.recs2], self.width_r)
         self._ee = {}
 
     @classmethod
-    def load(cls, r1: Path, r2: Path) -> "ReadPairs":
-        return cls(read_fastq(r1), read_fastq(r2))
+    def load(cls, r1: Path, r2: Path, trunc_q: int = 2) -> "ReadPairs":
+        return cls(read_fastq(r1), read_fastq(r2), trunc_q)
 
     def _ee_limits(self, max_ee):
         """Per-read truncation limits for the forward and the reverse read; `max_ee` is one number or (forward, reverse)."""

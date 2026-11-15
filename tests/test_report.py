@@ -71,7 +71,7 @@ def test_outputs_are_the_three_files_with_tidy_contents(tmp_path):
     assert {p.name for p in tmp_path.iterdir()} == {"REPORT.md", "summary.png", "summary.json"}
     summary = json.loads((tmp_path / "summary.json").read_text())
     assert summary["recommended"] == {"truncLenF": 222, "truncLenR": 226, "maxEE": 2.0, "maxEE_f": 2.0, "maxEE_r": 2.0, "minOverlap": 12,
-                                      "maxMismatch": 0, "estimated_yield": 0.995, "longest_mergeable_insert": 436}
+                                      "maxMismatch": 0, "estimated_yield": 0.995, "longest_mergeable_insert": 436, "truncQ": 2}
     assert summary["schema_version"] == 1
     assert summary["longest_amplicon"] == 434 and summary["warnings"] == []
     assert (tmp_path / "summary.png").stat().st_size > 5000

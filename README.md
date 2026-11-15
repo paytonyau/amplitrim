@@ -66,7 +66,7 @@ amplitrim --input-dir reads/ --work-dir work --out-dir report
 Example output (from simulated reads; your numbers will differ):
 
 ```
-AmpliTrim 0.3.0
+AmpliTrim 0.4.0
 Analysing reads...
 
 Recommended DADA2 settings
@@ -95,7 +95,7 @@ These reads are simulated, so use them to see what the report looks like, not to
 
 ## Options
 
-Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for amplicons that vary a lot in length, such as ITS), `--min-overlap` (the minimum overlap between the reads, 12 to 20; default 12) and `--verbose`. A second command, `amplitrim trim`, cuts the poor ends of ITS reads (below). AmpliTrim chooses everything else, including `maxEE` ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments)).
+Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for amplicons that vary a lot in length, such as ITS), `--min-overlap` (the minimum overlap between the reads, 12 to 20; default 12) and `--verbose`. A second command, `amplitrim trim`, cuts the poor ends of ITS reads (below). Every DADA2 setting can also be set yourself (`--max-ee`, `--trunc-len`, `--trunc-q`, `--min-len`, `--max-mismatch` and others); the report marks any value that differs from the tested one. AmpliTrim chooses everything else, including `maxEE` ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments)).
 
 ## How the settings are chosen
 

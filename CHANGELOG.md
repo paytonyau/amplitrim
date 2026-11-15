@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 (in preparation)
+
+- Every setting can be set by the user: `--max-ee`, `--trunc-len` (16S: that cut is evaluated instead of searched), `--trunc-q`, `--min-len`,
+  `--max-mismatch`, `--max-pairs`, and for ITS `--trim-window`, `--trim-quality` and `--trim-advice-below`. The defaults are the tested values;
+  the report and `summary.json` (`settings_given`) name each value that differs, with the tested one, and the DADA2 and QIIME 2 snippets use them.
+- `truncQ` is a setting of the filter simulation (16S and ITS); `summary.json` gives it under `recommended.truncQ` (a key added).
+- The trim's predicted pass rate is called checked only at the tested settings (window 4, mean quality 15, truncQ 2, minLen 50).
+- Run without these options, 0.4 gives exactly what 0.3 gives. The predictions at other values are checked in the validation archive
+  (register section 43) before release.
+
 ## 0.3.0
 
 ITS reads (`--its`). Each change was tested in the validation archive (register sections 33 to 40) on three fungal mock communities (the ATCC
