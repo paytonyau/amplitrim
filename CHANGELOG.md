@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0
+
+ITS reads (`--its`). Each change was tested in the validation archive (register sections 33 to 40) on three fungal mock communities (the ATCC
+mycobiome standard, the piglet isolates and mixes of Arfken et al. 2023, and the communities of Bakker 2018).
+
+- `maxEE` is computed from the reads for ITS as well: the rule of 16S, measured on each read after DADA2's `truncQ = 2` cut (there is no common cut
+  for ITS). On good reads it gives 2,2; on noisy reads that still mostly pass it relaxes maxEE, and the analysis is repeated at it.
+- When fewer than half the read pairs pass DADA2's filter at maxEE 2,2, the report advises trimming the poor read ends first and predicts the effect.
+  The prediction is not yet checked against DADA2, and the report says so.
+- `amplitrim trim INPUT_DIR OUTPUT_DIR` cuts each read before the first window of 4 bases whose mean quality is below 15 (the tested values;
+  `--window` and `--quality` change them, untested). It writes `amplitrim_trim.json` with what was cut.
+- The ITS report has a section on what is not advised (raising `truncQ` or `maxMismatch`, choosing settings by the number of ASVs, and the
+  forward-read and merge-first options for full-length ITS).
+- `summary.json`: `maxEE_rule.measured_on`, `maxEE_rule.computed_max_ee` and `trim_advice` are added (no key is removed or renamed).
+- 16S runs are unchanged.
+
 ## 0.2.0
 
 - `--min-overlap` sets the minimum overlap between the forward and the reverse read, from 12 to 20 nt (default 12, DADA2's default for `mergePairs`). It sets the shortest total length (the longest amplicon plus the overlap), is used in the merge tests, and appears as `minOverlap` in the report and in `summary.json`. Use the same value in your DADA2 `mergePairs` call. The validation was run at 12.

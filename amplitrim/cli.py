@@ -49,6 +49,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == "trim":                                            # amplitrim trim INPUT_DIR OUTPUT_DIR (0.3)
+        from .trim import main as trim_main
+        return trim_main(argv[1:])
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(message)s")
     print(f"AmpliTrim {__version__}\nAnalysing reads...", flush=True)

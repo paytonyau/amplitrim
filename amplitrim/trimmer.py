@@ -240,6 +240,12 @@ class ReadPairs:
             return float("nan"), float("nan")
         return (float(_ERR[self._phred1[added, :trim_f]].sum(axis=1).mean()), float(_ERR[self._phred2[added, :trim_r]].sum(axis=1).mean()))
 
+    def untruncated_errors(self, min_len: int):
+        """Expected errors of every read after DADA2's truncQ = 2 cut (each read stops before its first base of quality 2 or below; no truncation),
+        per direction, over the reads that keep at least `min_len` bases. The ITS maxEE rule is measured on these (pipeline._rule_its)."""
+        l1, l2 = np.minimum(self.len1, self.low1), np.minimum(self.len2, self.low2)
+        return _cut_errors(self._phred1, l1, l1 >= min_len), _cut_errors(self._phred2, l2, l2 >= min_len)
+
     def cut_errors(self, trim_f: int, trim_r: int):
         """Expected errors of every read over its first trim_f (forward) or trim_r (reverse) bases, for the reads at least that long."""
         ef = _cut_errors(self._phred1, np.full(self.n, trim_f), self.len1 >= trim_f)

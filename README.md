@@ -66,7 +66,7 @@ amplitrim --input-dir reads/ --work-dir work --out-dir report
 Example output (from simulated reads; your numbers will differ):
 
 ```
-AmpliTrim 0.2.0
+AmpliTrim 0.3.0
 Analysing reads...
 
 Recommended DADA2 settings
@@ -95,23 +95,34 @@ These reads are simulated, so use them to see what the report looks like, not to
 
 ## Options
 
-Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for amplicons that vary a lot in length, such as ITS), `--min-overlap` (the minimum overlap between the reads, 12 to 20; default 12) and `--verbose`. AmpliTrim chooses everything else, including `maxEE` ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments)).
+Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for amplicons that vary a lot in length, such as ITS), `--min-overlap` (the minimum overlap between the reads, 12 to 20; default 12) and `--verbose`. A second command, `amplitrim trim`, cuts the poor ends of ITS reads (below). AmpliTrim chooses everything else, including `maxEE` ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#arguments)).
 
 ## How the settings are chosen
 
 | Setting | How |
 |---|---|
 | `truncLenF`, `truncLenR` | The shortest total that can merge your longest amplicons (the amplicon plus the minimum overlap, 12 by default), split between the two reads where quality allows. Real merges are tested with vsearch |
-| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)) |
+| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)). For ITS (`--its`): the same rule, measured on the reads after DADA2's `truncQ = 2` cut; when fewer than half the pairs pass at 2,2, trim the poor read ends first (`amplitrim trim`) and keep 2 |
 | `minOverlap` | 12 (DADA2's default), or the value you give with `--min-overlap` (12 to 20); use the same value in `mergePairs` |
 
 The outputs are `REPORT.md` (read this one), `summary.json` (for scripts; [every key](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#summaryjson-for-scripts-and-workflow-managers)) and, if matplotlib is installed (`pip install "amplitrim[plot]"`), `summary.png` (a figure of your amplicon lengths and how errors build up).
+
+## ITS reads with poor ends
+
+When fewer than half your ITS read pairs pass DADA2's filter at maxEE 2,2, the report advises cutting the poor read ends first:
+
+```
+amplitrim trim reads/ trimmed/
+```
+
+Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on `trimmed/` as the report says. On three fungal mock communities this kept far more read pairs where fewer than half passed (26% to 83% on the poorest), found members that maxEE 2,2 lost, and added no false sequences ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim)).
 
 ## Limits
 
 - **It is for DADA2.** QIIME 2's other denoiser, Deblur, uses different settings (one trim length for merged reads), which AmpliTrim does not recommend ([guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#what-amplitrim-recommends)).
 - **The yield is an optimistic estimate.** It is measured before DADA2 denoises the reads. Use it to compare settings, and run DADA2 once to confirm. For ITS it can be far too high: on the two ITS studies we tested, DADA2 merged 46.9% and 14.0% of the pairs where 72.4% and 82.1% were estimated.
 - **It checks quality and mergeability, not accuracy.**
+- **The trim's predicted effect is not yet checked against DADA2.** The trim itself was tested on Illumina MiSeq ITS1 and ITS2 mock communities; it does not help full-length ITS, whose pairs are lost at merging.
 - **A tail of much longer amplicons** (for example non-target 18S) can force long, noisy reads. Only the longest 0.2% are set aside, so remove such reads first ([guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#limitations)).
 
 ## Citation, licence and contributing

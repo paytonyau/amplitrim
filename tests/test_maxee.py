@@ -122,14 +122,6 @@ def test_reads_that_cannot_span_the_amplicons_are_not_measured_and_not_run_twice
     assert res.recommendation is None and not res.relaxed and res.rule is None and runs == [2.0]
 
 
-def test_its_reads_are_left_at_the_default_because_there_is_no_cut(reads, tmp_path):
-    res = pipeline.run(pipeline.Settings(input_dir=reads, work_dir=tmp_path / "w", marker="its"))
-    assert res.cfg.max_ee == 2.0 and not res.relaxed and res.rule is None
-    write_outputs(res, tmp_path / "o")
-    text = (tmp_path / "o" / "REPORT.md").read_text()
-    assert "does not adjust it for ITS" in text and "no cut to measure them at" in text and "only trimmed where its quality first falls to 2 or below" in text
-
-
 def test_the_rule_arithmetic_on_known_expected_errors():
     """int(75th percentile) + 1, never below 2, with no upper limit, per read."""
     class Pairs:

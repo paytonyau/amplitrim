@@ -76,6 +76,7 @@ class Result:
     rule: Optional[dict] = None                            # what the rule measured: the cut, the percentile of the expected errors, the raw and the final limits
     its_loss: Optional[dict] = None                        # ITS only: where the pairs go (shares of the pairs analysed) and the share a forward-reads-only analysis would keep
     pass_rate_default: Optional[float] = None              # the share of pairs that pass at maxEE 2 with the best truncation at that maxEE
+    trim_advice: Optional[dict] = None                     # ITS only: fewer than TRIM_ADVICE_BELOW pass at maxEE 2,2, so trimming the poor read ends is advised, with its predicted effect
     coverage_search: list = field(default_factory=list)   # with explore_coverage (Python interface only): the best setting for several coverage levels
     min_retention: float = 0.5
     error_profile: object = None                           # expected errors along the reads, for the report's figure
@@ -337,6 +338,8 @@ def _ee_search(res: Result, pairs: ReadPairs, s: Settings, work: Path) -> list:
 RULE_Q = 0.75                  # maxEE, per read: int(the 75th percentile of the reads' expected errors at the cut) + 1, never below 2 (DADA2's default). There is no upper limit
 WARN_ABOVE = 5                 # the report notes it when a limit is above this: a note, not a limit
 MEASURE_AT = 5                 # only where to measure the reads when nothing passes at maxEE 2 (see _rule_cut); it does not limit the recommendation
+TRIM_ADVICE_BELOW = 0.5        # ITS: below this share of pairs passing at maxEE 2,2, trimming the poor read ends first is advised (a guide: the trim was safe
+                               # above it as well, and gained less; validation archive, register sections 33 to 40)
 
 
 def _collapse(f: float, r: float):
@@ -355,6 +358,37 @@ def _rule_max_ee(pairs: ReadPairs, trim_f: int, trim_r: int) -> Optional[dict]:
     return {"cut": [trim_f, trim_r], "percentile": list(pct), "raw": list(raw), "max_ee": list(final), "above_warning": any(v > WARN_ABOVE for v in final)}
 
 
+def _rule_its(pairs: ReadPairs, min_len: int) -> Optional[dict]:
+    """The rule for ITS, where reads are not cut at a common position: the expected errors of each read after DADA2's truncQ = 2 cut, over the reads that
+    keep at least min_len bases, with the percentile and rounding of the 16S rule (_rule_max_ee). Tested as the arm `eer` in the validation archive
+    (register sections 35 and 36): safe on three fungal mock communities. None when no read keeps min_len bases."""
+    ef, er = pairs.untruncated_errors(min_len)
+    if not len(ef) or not len(er):
+        return None
+    pct = (float(np.percentile(ef, 100 * RULE_Q)), float(np.percentile(er, 100 * RULE_Q)))
+    raw = (int(pct[0]) + 1, int(pct[1]) + 1)
+    final = tuple(max(2, v) for v in raw)
+    return {"cut": None, "percentile": list(pct), "raw": list(raw), "max_ee": list(final), "above_warning": any(v > WARN_ABOVE for v in final)}
+
+
+def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
+    """What the sliding-window trim (amplitrim trim, window 4, mean quality 15) is expected to give: the analysed read pairs are trimmed as the command
+    trims them, then filtered as DADA2's no-truncLen filter at maxEE 2,2 and merged as for any ITS data. This prediction is not yet checked against
+    DADA2 (marked as such in the report)."""
+    from .trim import trim_file, WINDOW, QUALITY
+    t1, t2 = work / "trimmed_sw" / "R1.fastq", work / "trimmed_sw" / "R2.fastq"
+    trim_file(first.sub.r1, t1)
+    trim_file(first.sub.r2, t2)
+    pairs = ReadPairs.load(t1, t2)
+    o1, o2 = work / "trimmed" / "sw_R1.fastq", work / "trimmed" / "sw_R2.fastq"
+    st = pairs.filter_untruncated(o1, o2, 2.0, s.min_len)
+    merge = run_vsearch(o1, o2, work / "merge", "sw", first.cfg.dada2_min_overlap, None, "tolerant", keep_merged=False).merge_rate if st.n_out > 0 else 0.0
+    for f in (o1, o2, t1, t2):
+        f.unlink(missing_ok=True)
+    return {"window": WINDOW, "quality": QUALITY, "below": TRIM_ADVICE_BELOW, "pass_rate_default": first.pass_rate_default,
+            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": False}
+
+
 def _rule_cut(pairs: ReadPairs, first: "Result") -> Optional[tuple]:
     """Where to measure the reads: the recommended cut at maxEE 2, or, when nothing passes at 2, the best split of the shortest total that covers the amplicons
     (judged at MEASURE_AT: it only decides where to look, and does not limit the recommendation)."""
@@ -369,14 +403,18 @@ def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     """AmpliTrim recommends maxEE as well as the truncation, in two steps: the best truncation at maxEE 2; then, at that cut, per read, the limit that covers
     three quarters of the reads in its direction (int of the 75th percentile of their expected errors, plus 1; never below 2; there is no upper limit, and the report notes a limit above 5); where that is
     not (2,2) the search is repeated at it. The 75th percentile was chosen after seeing the validation datasets and has not been tested on
-    independent data. ITS is not adjusted: reads are not cut at a common position, so there is no cut to measure at (and the rule is untested on reads of different lengths). A maxEE given in the settings is used exactly as given (for programs and
-    tests; the command line does not offer it)."""
+    independent data. ITS (0.3): when fewer than half the pairs pass at maxEE 2,2, trimming the poor read ends is advised and predicted (_its_after_trim),
+    and maxEE stays 2,2 (after the trim the rule gives 2,2); otherwise the rule is measured on the reads after DADA2's truncQ = 2 cut (_rule_its) and
+    the analysis is repeated at it where it is not (2,2). A maxEE given in the settings is used exactly as given (for programs and tests; the command
+    line does not offer it)."""
     if s.max_ee is not None:
         return _run_once(s, say)
     first = _run_once(replace(s, max_ee=2.0), say)
     r = first.recommendation
     first.pass_rate_default = None if r is None else r.ee_pass_rate
-    if first.marker == "its" or first.floor > first.max_combined:             # no common cut for ITS; and when the reads cannot span the amplicons, maxEE cannot help
+    if first.marker == "its":
+        return _run_its_rules(first, s, say)
+    if first.floor > first.max_combined:                                       # when the reads cannot span the amplicons, maxEE cannot help
         return first
     pairs = ReadPairs.load(first.sub.r1, first.sub.r2)
     cut = _rule_cut(pairs, first)
@@ -394,6 +432,30 @@ def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     if rule["above_warning"]:
         second.warnings.append(f"The rule sets maxEE {rule['max_ee'][0]},{rule['max_ee'][1]}, above {WARN_ABOVE}: these reads are very noisy; more low-quality reads may not help. "
                                f"Check on a mock community if you can.")
+    return second
+
+
+def _run_its_rules(first: Result, s: Settings, say: Callable[[str], None]) -> Result:
+    """ITS, after the analysis at maxEE 2,2: the trim advice, or the maxEE rule."""
+    if first.recommendation is None:
+        return first
+    pairs = ReadPairs.load(first.sub.r1, first.sub.r2)
+    rule = _rule_its(pairs, s.min_len)
+    first.rule = rule
+    if first.pass_rate_default is not None and first.pass_rate_default < TRIM_ADVICE_BELOW:
+        say(f"Only {first.pass_rate_default:.0%} of pairs pass at maxEE 2,2: predicting the sliding-window trim (window 4, mean quality 15)...")
+        first.trim_advice = _its_after_trim(first, s, s.work_dir)
+        return first
+    if rule is None or tuple(rule["max_ee"]) == (2, 2):
+        return first
+    ee = _collapse(*rule["max_ee"])
+    say(f"Three quarters of the reads need maxEE {rule['max_ee'][0]},{rule['max_ee'][1]} (the default is 2), so the analysis is repeated at it...")
+    second = _run_once(replace(s, max_ee=ee), say)
+    if second.recommendation is None:
+        return first
+    second.relaxed, second.pass_rate_default, second.rule = True, first.pass_rate_default, rule
+    if rule["above_warning"]:
+        second.warnings.append(f"The rule sets maxEE {rule['max_ee'][0]},{rule['max_ee'][1]}, above {WARN_ABOVE}: these reads are very noisy. Check on a mock community if you can.")
     return second
 
 
