@@ -177,7 +177,7 @@ amplitrim --input-dir demo/primer_trimmed --work-dir work --out-dir out</code></
 <section class="wrap" id="its-trim">
 <h2>ITS reads with poor ends</h2>
 <p>When fewer than half your ITS read pairs pass DADA2's filter at maxEE 2,2, the report advises cutting the poor read ends first:</p>
-<div class="codeblock"><pre><code>amplitrim trim reads/ trimmed/</code></pre></div>
+<div class="codeblock copyable"><pre><code>amplitrim trim reads/ trimmed/</code></pre></div>
 <p>Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on <code>trimmed/</code> as the report says. On three fungal mock communities this kept far more read pairs where fewer than half passed (26% to 83% on the poorest), found members that maxEE 2,2 lost, and added no false sequences (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim">user guide</a>).</p>
 </section>
 
