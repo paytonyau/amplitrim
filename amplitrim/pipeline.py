@@ -57,9 +57,9 @@ class Settings:
     trunc_len: Optional[tuple] = None   # 16S: (forward, reverse) to evaluate that cut instead of searching
     trim_window: int = 4            # ITS: the window of the trim that is advised and predicted (amplitrim trim)
     trim_quality: float = 15.0      # ITS: its mean quality
-    trim_advice_below: float = 0.5  # ITS: the trim is advised when fewer than this share of pairs pass at maxEE 2,2
+    trim_advice_below: float = 1.0  # ITS (0.4.1): the trim is advised when fewer than this share of pairs pass at maxEE 2,2; 1 = always (unless every pair passes), 0.5 = the 0.3 rule
 
-TESTED = {"min_overlap": 12, "trunc_q": 2, "max_mismatch": 0, "min_len": 50, "trim_window": 4, "trim_quality": 15.0, "trim_advice_below": 0.5,
+TESTED = {"min_overlap": 12, "trunc_q": 2, "max_mismatch": 0, "min_len": 50, "trim_window": 4, "trim_quality": 15.0, "trim_advice_below": 1.0,
           "max_pairs": DEFAULT_MAX_PAIRS}
 NAMES = {"min_overlap": "minOverlap", "trunc_q": "truncQ", "max_mismatch": "maxMismatch", "min_len": "minLen", "trim_window": "the trim's window",
          "trim_quality": "the trim's mean quality", "trim_advice_below": "the share below which the trim is advised", "max_pairs": "the read pairs analysed"}
@@ -368,8 +368,8 @@ def _ee_search(res: Result, pairs: ReadPairs, s: Settings, work: Path) -> list:
 RULE_Q = 0.75                  # maxEE, per read: int(the 75th percentile of the reads' expected errors at the cut) + 1, never below 2 (DADA2's default). There is no upper limit
 WARN_ABOVE = 5                 # the report notes it when a limit is above this: a note, not a limit
 MEASURE_AT = 5                 # only where to measure the reads when nothing passes at maxEE 2 (see _rule_cut); it does not limit the recommendation
-TRIM_ADVICE_BELOW = 0.5        # ITS: below this share of pairs passing at maxEE 2,2, trimming the poor read ends first is advised (a guide: the trim was safe
-                               # above it as well, and gained less; validation archive, register sections 33 to 44)
+TRIM_ADVICE_BELOW = 1.0        # ITS (0.4.1): the trim is advised for paired-end reads unless every pair already passes. 0.3 advised it below 0.5; the 50% line was never tested
+                               # as a threshold, and the trim was safe and kept 5 to 17 points more pairs on every dataset above it (validation archive, register sections 33 to 46)
 CHECKED_WINDOWS, CHECKED_QUALITIES, CHECKED_MINLENS = (2, 3, 4, 5, 6, 8, 10, 12, 16, 20), (12.0, 15.0, 18.0), (20, 50, 100, 150)   # the trim's prediction, checked (section 44)
 
 
@@ -411,6 +411,7 @@ def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
     trim_file(first.sub.r1, t1, s.trim_window, s.trim_quality)
     trim_file(first.sub.r2, t2, s.trim_window, s.trim_quality)
     pairs = ReadPairs.load(t1, t2, s.trunc_q)
+    rule_after = _rule_its(pairs, s.min_len)                                  # 0.4.1: the maxEE rule measured on the trimmed reads, not assumed
     o1, o2 = work / "trimmed" / "sw_R1.fastq", work / "trimmed" / "sw_R2.fastq"
     st = pairs.filter_untruncated(o1, o2, 2.0, s.min_len)
     merge = run_vsearch(o1, o2, work / "merge", "sw", first.cfg.dada2_min_overlap, None, "tolerant", keep_merged=False).merge_rate if st.n_out > 0 else 0.0
@@ -420,7 +421,8 @@ def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
     tested = (not changed["truncQ"] and sum(changed.values()) <= 1                                   # checked: the defaults (section 42), or one setting
               and s.trim_window in CHECKED_WINDOWS and s.trim_quality in CHECKED_QUALITIES and s.min_len in CHECKED_MINLENS)   # changed as tested (section 44)
     return {"window": s.trim_window, "quality": s.trim_quality, "below": s.trim_advice_below, "pass_rate_default": first.pass_rate_default,
-            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": tested}
+            "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": tested,
+            "rule_after": None if rule_after is None else list(rule_after["max_ee"])}
 
 
 def _rule_cut(pairs: ReadPairs, first: "Result") -> Optional[tuple]:
@@ -437,7 +439,7 @@ def run(s: Settings, say: Callable[[str], None] = lambda msg: None) -> Result:
     """AmpliTrim recommends maxEE as well as the truncation, in two steps: the best truncation at maxEE 2; then, at that cut, per read, the limit that covers
     three quarters of the reads in its direction (int of the 75th percentile of their expected errors, plus 1; never below 2; there is no upper limit, and the report notes a limit above 5); where that is
     not (2,2) the search is repeated at it. The 75th percentile was chosen after seeing the validation datasets and has not been tested on
-    independent data. ITS (0.3): when fewer than half the pairs pass at maxEE 2,2, trimming the poor read ends is advised and predicted (_its_after_trim),
+    independent data. ITS (0.4.1): trimming the poor read ends is advised and predicted for paired-end reads (_its_after_trim; 0.3 did so only when fewer than half the pairs passed),
     and maxEE stays 2,2 (after the trim the rule gives 2,2); otherwise the rule is measured on the reads after DADA2's truncQ = 2 cut (_rule_its) and
     the analysis is repeated at it where it is not (2,2). A maxEE given in the settings is used exactly as given (for programs and tests; the command
     line does not offer it)."""
@@ -479,7 +481,7 @@ def _run_its_rules(first: Result, s: Settings, say: Callable[[str], None]) -> Re
     rule = _rule_its(pairs, s.min_len)
     first.rule = rule
     if first.pass_rate_default is not None and first.pass_rate_default < s.trim_advice_below:
-        say(f"Only {first.pass_rate_default:.0%} of pairs pass at maxEE 2,2: predicting the sliding-window trim (window 4, mean quality 15)...")
+        say(f"{first.pass_rate_default:.0%} of pairs pass at maxEE 2,2: predicting the sliding-window trim (window {s.trim_window}, mean quality {s.trim_quality:g})...")
         first.trim_advice = _its_after_trim(first, s, s.work_dir)
         return first
     if rule is None or tuple(rule["max_ee"]) == (2, 2):

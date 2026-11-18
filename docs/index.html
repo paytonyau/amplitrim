@@ -144,7 +144,7 @@ footer p{margin:.2rem 0}
 <div class="codeblock copyable"><pre><code>pip install amplitrim      # Python 3.9 or later; vsearch must also be on your PATH
 amplitrim --input-dir reads/ --work-dir work --out-dir report</code></pre></div>
 <p>Example output (from simulated reads; your numbers will differ):</p>
-<div class="codeblock"><pre><code>AmpliTrim 0.4.0
+<div class="codeblock"><pre><code>AmpliTrim 0.4.1
 Analysing reads...
 
 Recommended DADA2 settings
@@ -170,15 +170,15 @@ amplitrim --input-dir demo/primer_trimmed --work-dir work --out-dir out</code></
 
 <section class="wrap" id="how">
 <h2>How the settings are chosen</h2>
-<div class="scroll"><table><thead><tr><th scope="col">Setting</th><th scope="col">How</th></tr></thead><tbody><tr><th scope="row"><code>truncLenF</code>, <code>truncLenR</code></th><td>The shortest total that can merge your longest amplicons (the amplicon plus the minimum overlap, 12 by default), split between the two reads where quality allows. Real merges are tested with vsearch</td></tr><tr><th scope="row"><code>maxEE</code></th><td>2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen">how</a>). For ITS (<code>--its</code>): the same rule, measured on the reads after DADA2's <code>truncQ = 2</code> cut; when fewer than half the pairs pass at 2,2, trim the poor read ends first (<code>amplitrim trim</code>) and keep 2</td></tr><tr><th scope="row"><code>minOverlap</code></th><td>12 (DADA2's default), or the value you give with <code>--min-overlap</code> (12 to 20); use the same value in <code>mergePairs</code></td></tr></tbody></table></div>
+<div class="scroll"><table><thead><tr><th scope="col">Setting</th><th scope="col">How</th></tr></thead><tbody><tr><th scope="row"><code>truncLenF</code>, <code>truncLenR</code></th><td>The shortest total that can merge your longest amplicons (the amplicon plus the minimum overlap, 12 by default), split between the two reads where quality allows. Real merges are tested with vsearch</td></tr><tr><th scope="row"><code>maxEE</code></th><td>2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen">how</a>). For ITS (<code>--its</code>): the same rule, measured on the reads after DADA2's <code>truncQ = 2</code> cut; the poor read ends are trimmed first (<code>amplitrim trim</code>; 0.4.1: always advised for paired-end ITS) and maxEE stays 2</td></tr><tr><th scope="row"><code>minOverlap</code></th><td>12 (DADA2's default), or the value you give with <code>--min-overlap</code> (12 to 20); use the same value in <code>mergePairs</code></td></tr></tbody></table></div>
 <p>The outputs are <code>REPORT.md</code> (read this one), <code>summary.json</code> (for scripts; <a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#summaryjson-for-scripts-and-workflow-managers">every key</a>) and, if matplotlib is installed (<code>pip install "amplitrim[plot]"</code>), <code>summary.png</code> (a figure of your amplicon lengths and how errors build up).</p>
 </section>
 
 <section class="wrap" id="its-trim">
 <h2>ITS reads with poor ends</h2>
-<p>When fewer than half your ITS read pairs pass DADA2's filter at maxEE 2,2, the report advises cutting the poor read ends first:</p>
+<p>For paired-end ITS reads the report advises cutting the poor read ends first (0.4.1; 0.3 did so only when fewer than half the pairs passed maxEE 2,2):</p>
 <div class="codeblock copyable"><pre><code>amplitrim trim reads/ trimmed/</code></pre></div>
-<p>Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on <code>trimmed/</code> as the report says. On four fungal mock communities this kept far more read pairs where fewer than half passed (26% to 83% on the poorest), found members that maxEE 2,2 lost, and added no false sequences (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim">user guide</a>).</p>
+<p>Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on <code>trimmed/</code> as the report says. On four fungal mock communities this kept 5 to 57 points more read pairs on every dataset (26% to 83% on the poorest), found members that maxEE 2,2 lost, added no false sequences and lost at most 1.2 points of the members found where it lost any; where your reads already pass above 90% the report calls it optional (<a href="https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim">user guide</a>).</p>
 </section>
 
 <section class="wrap" id="limits">
@@ -198,7 +198,7 @@ amplitrim --input-dir demo/primer_trimmed --work-dir work --out-dir out</code></
 </section>
 </main>
 <footer><div class="wrap">
-<p>AmpliTrim 0.4.0 · <a href="https://github.com/paytonyau/amplitrim">Source on GitHub</a> · <a href="https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md">Validation page</a> · <a href="https://github.com/paytonyau/amplitrim/issues">Report an issue</a></p>
+<p>AmpliTrim 0.4.1 · <a href="https://github.com/paytonyau/amplitrim">Source on GitHub</a> · <a href="https://github.com/paytonyau/amplitrim-validation/blob/main/docs/validation.md">Validation page</a> · <a href="https://github.com/paytonyau/amplitrim/issues">Report an issue</a></p>
 <p>By <a href="https://orcid.org/0000-0002-3283-0370">Payton (Tung On) Yau</a>.</p>
 </div></footer>
 <script>

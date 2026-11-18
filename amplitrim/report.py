@@ -11,6 +11,8 @@ from . import __version__
 from .config import ee_pair
 from .pipeline import RULE_Q, WARN_ABOVE, Result
 
+GOOD_DATA = 0.9      # 0.4.1: from this share passing at maxEE 2,2 the report calls the trim optional (wording only; not tested as a threshold)
+
 plt = None                      # matplotlib.pyplot, loaded by _pyplot() when matplotlib is installed (pip install "amplitrim[plot]")
 
 
@@ -77,10 +79,14 @@ def _maxee_note_its(res: Result, short: bool = False) -> str:
     if t:
         alt = "" if rule is None or tuple(rule["max_ee"]) == (2, 2) else \
             f" Without the trim, the second option is maxEE {rule['max_ee'][0]},{rule['max_ee'][1]} computed from your reads (safe in the validation, but it found fewer members than the trim)."
+        only = "only " if t["pass_rate_default"] < 0.5 else ""
+        after = t.get("rule_after")
+        after_text = (", and after the trim the rule gives 2" if after in (None, [2, 2]) else
+                      f"; on the trimmed reads the rule would give maxEE {after[0]},{after[1]}, but the validation tested the trim with maxEE 2,2 only")
         if short:
-            return f"maxEE is 2, for the reads after trimming their poor ends: only {t['pass_rate_default']:.0%} of the read pairs pass at maxEE 2 as they are."
-        return (f"maxEE is 2, DADA2's default, for the reads after trimming their poor ends (see 'Trim the poor read ends first'): only "
-                f"{t['pass_rate_default']:.0%} of the read pairs pass at maxEE 2 as they are, and after the trim the rule gives 2.{alt}")
+            return f"maxEE is 2, for the reads after trimming their poor ends: {only}{t['pass_rate_default']:.0%} of the read pairs pass at maxEE 2 as they are."
+        return (f"maxEE is 2, DADA2's default, for the reads after trimming their poor ends (see 'Trim the poor read ends first'): {only}"
+                f"{t['pass_rate_default']:.0%} of the read pairs pass at maxEE 2 as they are{after_text}.{alt}")
     pf, pr = rule["percentile"]
     if res.relaxed:
         had = "none of the read pairs pass" if not res.pass_rate_default else f"only {res.pass_rate_default:.0%} of the read pairs pass"
@@ -104,6 +110,7 @@ ADVICE = {"truncQ": lambda v: ("it changed nothing on the data tested (3 to 6)."
           "maxMismatch": lambda v: "it let false sequences through on ITS." if v > 0 else None,
           "the trim's window": lambda v: ("safe on the mock data tested, but it kept fewer pairs than window 4." if v in (5, 8, 10, 12, 16, 20) else
                                           "not safe on the mock data tested (it lost true members)." if v in (2, 3, 6) else None),
+          "the share below which the trim is advised": lambda v: ("the 0.3 rule: the trim is not advised on reads that already pass above this share; in the validation the trim still kept 5 to 17 points more pairs on every dataset above 50%." if v < 1 else None),
           "the trim's mean quality": lambda v: ("safe, but it kept fewer pairs than 15." if v == 12 else "not safe on the mock data tested." if v in (18, 20, 25) else None)}
 
 
@@ -129,17 +136,23 @@ def _trim_section(res: Result) -> List[str]:
     t = res.trim_advice
     if not t:
         return []
-    return ["## Trim the poor read ends first", "",
-            f"Only **{t['pass_rate_default']:.0%}** of the read pairs pass DADA2's filter at maxEE 2,2 as they are (AmpliTrim advises the trim below "
-            f"{t['below']:.0%}). Cut the poor read ends first, then run DADA2 on the trimmed files with the settings above:", "",
+    p, always = t["pass_rate_default"], t["below"] >= 1.0
+    head = (f"**{p:.0%}** of the read pairs pass DADA2's filter at maxEE 2,2 as they are. AmpliTrim advises cutting the poor read ends of paired-end ITS reads first, "
+            f"then running DADA2 on the trimmed files with the settings above:" if always else
+            f"Only **{p:.0%}** of the read pairs pass DADA2's filter at maxEE 2,2 as they are (you set the trim to be advised below {t['below']:.0%}). "
+            f"Cut the poor read ends first, then run DADA2 on the trimmed files with the settings above:")
+    good = ([f"Your reads already pass well, so the trim can recover at most the {1 - p:.0%} of pairs that fail. In the validation, on three datasets passing 91% to 94% at "
+             f"maxEE 2,2 the trim still kept 5.1 to 6.2 points more pairs and changed the members found by between -1.2 and +2.2 points: the trim is optional here.", ""]
+            if p >= GOOD_DATA else [])
+    return ["## Trim the poor read ends first", "", head, "",
             "```", "amplitrim trim INPUT_DIR TRIMMED_DIR" + ("" if (t["window"], t["quality"]) == (4, 15) else f" --window {t['window']} --quality {t['quality']:g}"), "```", "",
             f"Each read is cut before the first window of {t['window']} bases whose mean quality is below {t['quality']:g}; a read with no such window is kept whole.",
             f"For your reads, AmpliTrim predicts that after the trim **{t['pass_rate']:.0%}** of the pairs pass the filter at maxEE 2,2 and about "
             f"**{t['yield_est']:.0%}** pass and merge. " + ("The pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points); the yield, as always, is an upper bound." if t["checked"] else "At the settings you chose, this prediction is not checked against DADA2 (it was checked at windows 2 to 20 with quality 15, quality 12 to 18 with window 4, and minLen 20 to 150, one setting changed at a time)."), "",
-            "In the validation (four fungal mock communities, register sections 33 to 44) this trim kept many more pairs where fewer than half passed "
-            "(26% to 83% of the pairs on the ATCC standard's ITS2), found members that maxEE 2,2 had lost, and added no false sequences; it was safe on "
-            "well-passing data as well, where it gained less. Of twelve trims compared (windows 2 to 20, mean quality 12 to 25), it kept the most pairs while staying safe. "
-            "It is not advised for single-end (forward-only) reads: there it let false sequences through.", ""]
+            "In the validation (four fungal mock communities, register sections 33 to 46) this trim kept more pairs on every mock dataset (5 to 57 points; "
+            "26% to 83% of the pairs on the ATCC standard's ITS2), found members that maxEE 2,2 had lost, added no false sequences, and lost at most 1.2 points "
+            "of the members found where it lost any. Of twelve trims compared (windows 2 to 20, mean quality 12 to 25), it kept the most pairs while staying safe. "
+            "It is not advised for single-end (forward-only) reads: there it let false sequences through.", ""] + good
 
 
 def _its_not_advised() -> List[str]:
@@ -323,7 +336,8 @@ def screen_summary(res: Result, report_path: Path) -> List[str]:
                   + " (untested values are marked in the report)."]
     if r is not None and res.trim_advice:
         t = res.trim_advice
-        lines += ["", f"  Only {t['pass_rate_default']:.0%} of the pairs pass at maxEE 2,2: trim the poor read ends first, then use these settings:",
+        lines += ["", f"  {t['pass_rate_default']:.0%} of the pairs pass at maxEE 2,2: trim the poor read ends first"
+                      + (" (optional: your reads already pass well)" if t["pass_rate_default"] >= GOOD_DATA else "") + ", then use these settings:",
                   "      amplitrim trim INPUT_DIR TRIMMED_DIR",
                   f"  Predicted after the trim: {t['pass_rate']:.0%} pass the filter, about {t['yield_est']:.0%} pass and merge (the pass rate is checked against DADA2)."]
     if res.warnings:
@@ -603,8 +617,8 @@ def _report_text_its(res: Result, figure: bool = True) -> str:
             f"- No fixed truncation length is tested, as in DADA2's ITS workflow: each read is cut at its first base of quality 2 or "
             f"below (`truncQ = 2`), then the pair is kept if both reads are at least {res.min_len} nt, free of Ns "
             f"and within maxEE {_ee_text(cfg.max_ee)}. The kept pairs are merged with vsearch.",
-            f"- maxEE (0.3): when at least half the pairs pass at maxEE 2,2, it is computed from the reads ({RULE_Q * 100:.0f}th percentile of the expected errors "
-            f"after the truncQ = 2 cut, plus 1, never below 2); below half, the poor read ends are trimmed first and maxEE is 2 (validation archive, sections 33 to 44).", "",
+            f"- maxEE (ITS): the poor read ends are trimmed first and maxEE is 2 for the trimmed reads; without the trim it is computed from the reads ({RULE_Q * 100:.0f}th percentile of the expected errors "
+            f"after the truncQ = 2 cut, plus 1, never below 2) (validation archive, sections 33 to 46).", "",
             "## Limits", "",
             "- The estimates come from merging raw reads with vsearch, not from DADA2. Run DADA2 once with these "
             "settings to confirm.",

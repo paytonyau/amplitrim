@@ -34,7 +34,7 @@ def test_truncq_cuts_each_read_at_its_first_base_at_or_below_the_value(tmp_path)
 
 def test_defaults_given_explicitly_change_nothing(reads, tmp_path):
     a, _, sa = run(reads, tmp_path / "a")
-    b, _, sb = run(reads, tmp_path / "b", trunc_q=2, max_mismatch=0, min_len=50, trim_window=4, trim_quality=15.0, trim_advice_below=0.5, min_overlap=12)
+    b, _, sb = run(reads, tmp_path / "b", trunc_q=2, max_mismatch=0, min_len=50, trim_window=4, trim_quality=15.0, trim_advice_below=1.0, min_overlap=12)
     assert b.given == {} and "settings_given" not in sb and sa["recommended"] == sb["recommended"] and sa["maxEE_rule"] == sb["maxEE_rule"]
 
 
@@ -74,7 +74,7 @@ def test_the_trim_settings_change_the_advice_and_its_prediction_is_not_called_ch
     assert (t["window"], t["quality"], t["checked"]) == (8, 20.0, False) and "amplitrim trim INPUT_DIR TRIMMED_DIR --window 8 --quality 20" in report
     assert "this prediction is not checked against DADA2" in report and summary["trim_advice"]["checked"] is False
     none, _, _ = run(poor, tmp_path / "b", marker="its", trim_advice_below=0.3)      # 40% pass: above 0.3, so no advice
-    assert none.trim_advice is None and none.given["the share below which the trim is advised"] == (0.3, 0.5)
+    assert none.trim_advice is None and none.given["the share below which the trim is advised"] == (0.3, 1.0)
 
 
 def test_max_pairs_caps_the_pairs_analysed(reads, tmp_path):

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1 (18 November 2026)
+
+- **ITS: the trim is advised for all paired-end reads.** 0.3 and 0.4.0 advised it only when fewer than half the read pairs passed DADA2's filter at maxEE 2,2.
+  That 50% line was a design choice and was never tested as a threshold; in the validation the trim was safe and kept 5 to 57 points more pairs on every
+  mock dataset, including those above 50% (register section 46; the evidence is the runs of sections 33 to 44). `--trim-advice-below` now defaults to 1
+  (always, unless every pair passes); `--trim-advice-below 0.5` restores the 0.3 rule.
+- Reads that already pass well (90% or more at maxEE 2,2): the report says the trim can recover only the pairs that fail, gives the validation's numbers on such
+  data (5.1 to 6.2 points more pairs; the members found changed by -1.2 to +2.2 points) and calls the trim optional.
+- The report now **measures** the maxEE rule on your trimmed reads and reports it, instead of stating that it gives 2,2 (the validation found 2,2 on all
+  seven datasets where it measured the rule on trimmed reads, run 29, P110); where it would give something else it says so and notes that the
+  validation tested the trim with maxEE 2,2. `summary.json` `trim_advice` gains `rule_after`.
+- 16S output is unchanged.
+
 ## 0.4.0 (18 November 2026)
 
 - Every setting can be set by the user: `--max-ee`, `--trunc-len` (16S: that cut is evaluated instead of searched), `--trunc-q`, `--min-len`,

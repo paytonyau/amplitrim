@@ -55,7 +55,7 @@ SETTINGS = [("--max-ee", "max_ee", _max_ee, "F[,R]", "use this maxEE instead of 
             ("--max-pairs", "max_pairs", int, "N", "read pairs analysed, at most (default 50,000; 0 = all)"),
             ("--trim-window", "trim_window", int, "N", "with --its: the window of the trim AmpliTrim advises and predicts (default 4)"),
             ("--trim-quality", "trim_quality", float, "Q", "with --its: the trim's mean quality (default 15)"),
-            ("--trim-advice-below", "trim_advice_below", float, "SHARE", "with --its: advise the trim below this share passing at maxEE 2,2 (default 0.5)")]
+            ("--trim-advice-below", "trim_advice_below", float, "SHARE", "with --its: advise the trim below this share passing at maxEE 2,2 (default 1: always; 0.5 is the 0.3 rule)")]
 
 
 def build_parser() -> argparse.ArgumentParser:

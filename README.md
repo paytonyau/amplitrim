@@ -66,7 +66,7 @@ amplitrim --input-dir reads/ --work-dir work --out-dir report
 Example output (from simulated reads; your numbers will differ):
 
 ```
-AmpliTrim 0.4.0
+AmpliTrim 0.4.1
 Analysing reads...
 
 Recommended DADA2 settings
@@ -102,20 +102,20 @@ Required: `--input-dir`, `--work-dir` and `--out-dir`. Optional: `--its` (for am
 | Setting | How |
 |---|---|
 | `truncLenF`, `truncLenR` | The shortest total that can merge your longest amplicons (the amplicon plus the minimum overlap, 12 by default), split between the two reads where quality allows. Real merges are tested with vsearch |
-| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)). For ITS (`--its`): the same rule, measured on the reads after DADA2's `truncQ = 2` cut; when fewer than half the pairs pass at 2,2, trim the poor read ends first (`amplitrim trim`) and keep 2 |
+| `maxEE` | 2 (DADA2's default) for clean reads. For noisy reads, a limit for each read that covers three quarters of its reads, never below 2, with a note if it goes above 5 ([how](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#how-maxee-is-chosen)). For ITS (`--its`): the same rule, measured on the reads after DADA2's `truncQ = 2` cut; the poor read ends are trimmed first (`amplitrim trim`; 0.4.1: always advised for paired-end ITS) and maxEE stays 2 |
 | `minOverlap` | 12 (DADA2's default), or the value you give with `--min-overlap` (12 to 20); use the same value in `mergePairs` |
 
 The outputs are `REPORT.md` (read this one), `summary.json` (for scripts; [every key](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#summaryjson-for-scripts-and-workflow-managers)) and, if matplotlib is installed (`pip install "amplitrim[plot]"`), `summary.png` (a figure of your amplicon lengths and how errors build up).
 
 ## ITS reads with poor ends
 
-When fewer than half your ITS read pairs pass DADA2's filter at maxEE 2,2, the report advises cutting the poor read ends first:
+For paired-end ITS reads the report advises cutting the poor read ends first (0.4.1; 0.3 did so only when fewer than half the pairs passed maxEE 2,2):
 
 ```
 amplitrim trim reads/ trimmed/
 ```
 
-Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on `trimmed/` as the report says. On four fungal mock communities this kept far more read pairs where fewer than half passed (26% to 83% on the poorest), found members that maxEE 2,2 lost, and added no false sequences ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim)).
+Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on `trimmed/` as the report says. On four fungal mock communities this kept 5 to 57 points more read pairs on every dataset (26% to 83% on the poorest), found members that maxEE 2,2 lost, added no false sequences and lost at most 1.2 points of the members found where it lost any; where your reads already pass above 90% the report calls it optional ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim)).
 
 ## Limits
 
