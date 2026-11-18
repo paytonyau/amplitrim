@@ -88,12 +88,23 @@ def _maxee_note_its(res: Result, short: bool = False) -> str:
             return f"maxEE is {ee}, not 2: {had} at maxEE 2. Each limit lets the best three quarters of the reads in its direction pass."
         return (f"maxEE is {ee}, not DADA2's default of 2: after DADA2's truncQ = {res.trunc_q} cut, the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is "
                 f"{pf:.1f} forward and {pr:.1f} reverse, so each limit covers three quarters of the reads in its direction (never below 2). {had[0].upper() + had[1:]} "
-                f"at maxEE 2 and {r.ee_pass_rate:.0%} pass now. This rule was safe on three fungal mock communities in the validation (register sections 35 to 40).")
+                f"at maxEE 2 and {r.ee_pass_rate:.0%} pass now. This rule was safe on four fungal mock communities in the validation (register sections 35 to 44).")
     if tuple(rule["max_ee"]) == (2, 2):
         return (f"maxEE is 2, DADA2's default: after DADA2's truncQ = {res.trunc_q} cut, the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} forward "
                 f"and {pr:.1f} reverse, both under 2, so the default already covers three quarters of the reads; {r.ee_pass_rate:.0%} of the read pairs pass.")
     return (f"maxEE stays 2: the rule would set {rule['max_ee'][0]},{rule['max_ee'][1]} (the {RULE_Q * 100:.0f}th percentile of the reads' expected errors is {pf:.1f} "
             f"forward and {pr:.1f} reverse), but no read pairs merged at that setting.")
+
+
+# 0.4: what the validation found at values a user may choose (register sections 26 to 44); None where a value was not tested
+ADVICE = {"truncQ": lambda v: ("it changed nothing on the data tested (3 to 6)." if 3 <= v <= 6 else
+                               "safe on the mock data tested, but not advised: DADA2's authors advise against truncQ (DADA2 issue #1884)." if v == 7 else
+                               "it lost true members (8 and above)." if v >= 8 else None),
+          "minLen": lambda v: ("safe on the mock data tested." if v in (20, 100) else "it lost short amplicons (150 and above)." if v >= 150 else None),
+          "maxMismatch": lambda v: "it let false sequences through on ITS." if v > 0 else None,
+          "the trim's window": lambda v: ("safe on the mock data tested, but it kept fewer pairs than window 4." if v in (5, 8, 10, 12, 16, 20) else
+                                          "not safe on the mock data tested (it lost true members)." if v in (2, 3, 6) else None),
+          "the trim's mean quality": lambda v: ("safe, but it kept fewer pairs than 15." if v == 12 else "not safe on the mock data tested." if v in (18, 20, 25) else None)}
 
 
 def _given_section(res: Result) -> List[str]:
@@ -104,7 +115,13 @@ def _given_section(res: Result) -> List[str]:
     fmt = lambda v: ",".join(one(x) for x in v) if isinstance(v, tuple) else one(v)
     lines = []
     for name, (v, tested) in res.given.items():
-        lines.append(f"- {name} = {fmt(v)}: " + ("given by you instead of computed by AmpliTrim." if tested is None else f"not the tested value ({fmt(tested)}); results at this value are untested."))
+        if tested is None:
+            text = "given by you instead of computed by AmpliTrim."
+        elif name in ADVICE and ADVICE[name](v):
+            text = f"not the default ({fmt(tested)}). In the validation: {ADVICE[name](v)}"
+        else:
+            text = f"not the tested value ({fmt(tested)}); results at this value are untested."
+        lines.append(f"- {name} = {fmt(v)}: " + text)
     return ["## Settings you chose", ""] + lines + [""]
 
 
@@ -118,15 +135,19 @@ def _trim_section(res: Result) -> List[str]:
             "```", "amplitrim trim INPUT_DIR TRIMMED_DIR" + ("" if (t["window"], t["quality"]) == (4, 15) else f" --window {t['window']} --quality {t['quality']:g}"), "```", "",
             f"Each read is cut before the first window of {t['window']} bases whose mean quality is below {t['quality']:g}; a read with no such window is kept whole.",
             f"For your reads, AmpliTrim predicts that after the trim **{t['pass_rate']:.0%}** of the pairs pass the filter at maxEE 2,2 and about "
-            f"**{t['yield_est']:.0%}** pass and merge. " + ("The pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points); the yield, as always, is an upper bound." if t["checked"] else "At the settings you chose, this prediction is not checked against DADA2 (it was checked at window 4, quality 15, truncQ 2 and minLen 50)."), "",
-            "In the validation (three fungal mock communities, register sections 33 to 40) this trim kept many more pairs where fewer than half passed "
+            f"**{t['yield_est']:.0%}** pass and merge. " + ("The pass rate after the trim was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points); the yield, as always, is an upper bound." if t["checked"] else "At the settings you chose, this prediction is not checked against DADA2 (it was checked at windows 2 to 20 with quality 15, quality 12 to 18 with window 4, and minLen 20 to 150, one setting changed at a time)."), "",
+            "In the validation (four fungal mock communities, register sections 33 to 44) this trim kept many more pairs where fewer than half passed "
             "(26% to 83% of the pairs on the ATCC standard's ITS2), found members that maxEE 2,2 had lost, and added no false sequences; it was safe on "
-            "well-passing data as well, where it gained less. A stronger trim (mean quality 20 or 25) was not safe.", ""]
+            "well-passing data as well, where it gained less. Of twelve trims compared (windows 2 to 20, mean quality 12 to 25), it kept the most pairs while staying safe. "
+            "It is not advised for single-end (forward-only) reads: there it let false sequences through.", ""]
 
 
 def _its_not_advised() -> List[str]:
     return ["## Not advised for ITS", "",
-            "- Raising `truncQ` above 2: one low base then cuts the whole read; tested, it lost true members.",
+            "- Raising `truncQ` above 2: 3 to 6 changed nothing on the data tested; 7 was safe there but is not advised, because DADA2's authors advise against "
+            "`truncQ` (the length variation lowers DADA2's sensitivity; DADA2 issue #1884); 8 and above lost true members.",
+            "- `minLen` of 150 or more: it lost short amplicons (an ITS1 fragment of about 105 nt). 20 and 100 were safe.",
+            "- Trimming single-end (forward-only) reads: it let false sequences through.",
             "- Raising `maxMismatch` above 0: tested, it let false sequences through.",
             "- Choosing settings by the number of ASVs: errors and chimeras are ASVs too, and settings that gave more ASVs found fewer true members.",
             "- For full-length ITS, where most pairs fail to merge, using the forward reads alone or merging before DADA2 keeps more reads, but gave four "
@@ -583,7 +604,7 @@ def _report_text_its(res: Result, figure: bool = True) -> str:
             f"below (`truncQ = 2`), then the pair is kept if both reads are at least {res.min_len} nt, free of Ns "
             f"and within maxEE {_ee_text(cfg.max_ee)}. The kept pairs are merged with vsearch.",
             f"- maxEE (0.3): when at least half the pairs pass at maxEE 2,2, it is computed from the reads ({RULE_Q * 100:.0f}th percentile of the expected errors "
-            f"after the truncQ = 2 cut, plus 1, never below 2); below half, the poor read ends are trimmed first and maxEE is 2 (validation archive, sections 33 to 40).", "",
+            f"after the truncQ = 2 cut, plus 1, never below 2); below half, the poor read ends are trimmed first and maxEE is 2 (validation archive, sections 33 to 44).", "",
             "## Limits", "",
             "- The estimates come from merging raw reads with vsearch, not from DADA2. Run DADA2 once with these "
             "settings to confirm.",

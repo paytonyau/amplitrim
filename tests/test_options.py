@@ -56,14 +56,14 @@ def test_a_16s_cut_given_is_evaluated_instead_of_searched(reads, tmp_path):
 def test_maxee_and_maxmismatch_given(reads, tmp_path):
     res, report, summary = run(reads, tmp_path, max_ee=(2.0, 3.0), max_mismatch=1)
     assert res.cfg.max_ee == (2.0, 3.0) and res.rule is None and res.cfg.dada2_max_mismatch == 1
-    assert summary["recommended"]["maxMismatch"] == 1 and "maxMismatch = 1" in report and "maxMismatch = 1: not the tested value (0)" in report
+    assert summary["recommended"]["maxMismatch"] == 1 and "maxMismatch = 1" in report and "maxMismatch = 1: not the default (0). In the validation: it let false sequences through on ITS." in report
     assert "maxEE = 2,3: given by you instead of computed by AmpliTrim." in report
 
 
 def test_truncq_and_minlen_for_its_reach_the_snippets_and_are_marked(reads, tmp_path):
     res, report, summary = run(reads, tmp_path, marker="its", trunc_q=5, min_len=100)
     assert summary["recommended"]["truncQ"] == 5 and summary["recommended"]["minLen"] == 100
-    assert "truncQ = 5, minLen = 100)" in report and "--p-trunc-q 5" in report and "truncQ = 5: not the tested value (2)" in report
+    assert "truncQ = 5, minLen = 100)" in report and "--p-trunc-q 5" in report and "truncQ = 5: not the default (2). In the validation: it changed nothing on the data tested (3 to 6)." in report
     assert summary["maxEE_rule"]["measured_on"] == "reads after the truncQ = 5 cut" and "You set: truncQ = 5; minLen = 100" in " ".join(screen_summary(res, tmp_path / "R"))
 
 
@@ -114,3 +114,22 @@ def test_truncq_changes_what_the_its_filter_keeps(tmp_path):
     two = pipeline.run(pipeline.Settings(input_dir=folder, work_dir=tmp_path / "a", marker="its"))
     ten = pipeline.run(pipeline.Settings(input_dir=folder, work_dir=tmp_path / "b", marker="its", trunc_q=10))
     assert two.its_loss["too_short"] == 0 and ten.its_loss["too_short"] == pytest.approx(0.5, abs=0.01)
+
+
+def test_the_validations_findings_are_given_for_values_a_user_chooses(reads, tmp_path):
+    res, report, _ = run(reads, tmp_path / "a", marker="its", trunc_q=7, min_len=150, max_mismatch=1)
+    assert "truncQ = 7: not the default (2). In the validation: safe on the mock data tested, but not advised" in report and "DADA2 issue #1884" in report
+    assert "minLen = 150: not the default (50). In the validation: it lost short amplicons" in report
+    assert "maxMismatch = 1: not the default (0). In the validation: it let false sequences through on ITS." in report
+    res, report, _ = run(reads, tmp_path / "b", marker="its", trunc_q=11)
+    assert "truncQ = 11: not the default (2). In the validation: it lost true members (8 and above)." in report
+    res, report, _ = run(reads, tmp_path / "c", marker="its", min_len=75)
+    assert "minLen = 75: not the tested value (50); results at this value are untested." in report
+
+
+def test_the_trim_prediction_is_checked_within_the_tested_settings(tmp_path):
+    poor = reads_with_a_bad_reverse_tail(tmp_path / "poor", share_good=0.4, bad_q=12)
+    for kw, checked in (({"trim_window": 8}, True), ({"trim_quality": 12.0}, True), ({"min_len": 100}, True), ({"trim_window": 7}, False),
+                        ({"trim_window": 8, "min_len": 100}, False), ({"trunc_q": 3}, False)):
+        res, _, _ = run(poor, tmp_path / str(len(str(kw)) + len(kw)) / str(abs(hash(str(kw))) % 10000), marker="its", **kw)
+        assert res.trim_advice["checked"] is checked, kw

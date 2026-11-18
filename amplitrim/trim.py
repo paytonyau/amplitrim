@@ -6,9 +6,10 @@ Each read is cut before the first window of `window` bases whose mean quality is
 FASTQ (.fastq, .fq, optionally .gz) in INPUT_DIR is written to OUTPUT_DIR under the same name, read for read, so the pairs stay in order and the
 forward and reverse files can go to DADA2 as before (no truncation, truncQ = 2, minLen = 50; reads trimmed below minLen are dropped there).
 
-This is the rule tested in the validation archive (register sections 33 to 40): window 4 and mean quality 15 were safe on three fungal mock
-communities and kept many more read pairs where fewer than half passed maxEE 2,2. Other values are possible but untested: quality 20 and 25 lost
-true members there, and quality 10 kept fewer pairs than 15. The cut is the same code as the validation's (`sliding_cut`).
+This is the rule tested in the validation archive (register sections 33 to 44): window 4 and mean quality 15 were safe on four fungal mock
+communities and kept many more read pairs where fewer than half passed maxEE 2,2. Twelve trims were compared (section 44: windows 2 to 20 at mean
+quality 15, and qualities 10 to 25 at window 4): this one kept the most pairs while staying safe; windows 2, 3 and 6 and qualities of 18 and above were not
+safe. It is not advised for single-end (forward-only) reads, where it let false sequences through. The cut is the same code as the validation's (`sliding_cut`).
 """
 import argparse
 import gzip

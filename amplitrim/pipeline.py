@@ -369,7 +369,8 @@ RULE_Q = 0.75                  # maxEE, per read: int(the 75th percentile of the
 WARN_ABOVE = 5                 # the report notes it when a limit is above this: a note, not a limit
 MEASURE_AT = 5                 # only where to measure the reads when nothing passes at maxEE 2 (see _rule_cut); it does not limit the recommendation
 TRIM_ADVICE_BELOW = 0.5        # ITS: below this share of pairs passing at maxEE 2,2, trimming the poor read ends first is advised (a guide: the trim was safe
-                               # above it as well, and gained less; validation archive, register sections 33 to 40)
+                               # above it as well, and gained less; validation archive, register sections 33 to 44)
+CHECKED_WINDOWS, CHECKED_QUALITIES, CHECKED_MINLENS = (2, 3, 4, 5, 6, 8, 10, 12, 16, 20), (12.0, 15.0, 18.0), (20, 50, 100, 150)   # the trim's prediction, checked (section 44)
 
 
 def _collapse(f: float, r: float):
@@ -391,7 +392,7 @@ def _rule_max_ee(pairs: ReadPairs, trim_f: int, trim_r: int) -> Optional[dict]:
 def _rule_its(pairs: ReadPairs, min_len: int) -> Optional[dict]:
     """The rule for ITS, where reads are not cut at a common position: the expected errors of each read after DADA2's truncQ = 2 cut, over the reads that
     keep at least min_len bases, with the percentile and rounding of the 16S rule (_rule_max_ee). Tested as the arm `eer` in the validation archive
-    (register sections 35 and 36): safe on three fungal mock communities. None when no read keeps min_len bases."""
+    (register sections 35, 36 and 44): safe on four fungal mock communities. None when no read keeps min_len bases."""
     ef, er = pairs.untruncated_errors(min_len)
     if not len(ef) or not len(er):
         return None
@@ -415,7 +416,9 @@ def _its_after_trim(first: "Result", s: Settings, work: Path) -> dict:
     merge = run_vsearch(o1, o2, work / "merge", "sw", first.cfg.dada2_min_overlap, None, "tolerant", keep_merged=False).merge_rate if st.n_out > 0 else 0.0
     for f in (o1, o2, t1, t2):
         f.unlink(missing_ok=True)
-    tested = (s.trim_window, s.trim_quality, s.trunc_q, s.min_len) == (WINDOW, QUALITY, 2, 50)       # the prediction was checked at these (section 42)
+    changed = {"window": s.trim_window != WINDOW, "quality": s.trim_quality != QUALITY, "minLen": s.min_len != 50, "truncQ": s.trunc_q != 2}
+    tested = (not changed["truncQ"] and sum(changed.values()) <= 1                                   # checked: the defaults (section 42), or one setting
+              and s.trim_window in CHECKED_WINDOWS and s.trim_quality in CHECKED_QUALITIES and s.min_len in CHECKED_MINLENS)   # changed as tested (section 44)
     return {"window": s.trim_window, "quality": s.trim_quality, "below": s.trim_advice_below, "pass_rate_default": first.pass_rate_default,
             "pass_rate": st.ee_pass_rate, "merge_rate": merge, "yield_est": st.ee_pass_rate * merge, "checked": tested}
 

@@ -115,7 +115,7 @@ When fewer than half your ITS read pairs pass DADA2's filter at maxEE 2,2, the r
 amplitrim trim reads/ trimmed/
 ```
 
-Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on `trimmed/` as the report says. On three fungal mock communities this kept far more read pairs where fewer than half passed (26% to 83% on the poorest), found members that maxEE 2,2 lost, and added no false sequences ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim)).
+Each read is cut before the first window of 4 bases whose mean quality is below 15; good reads are kept whole. Then run DADA2 on `trimmed/` as the report says. On four fungal mock communities this kept far more read pairs where fewer than half passed (26% to 83% on the poorest), found members that maxEE 2,2 lost, and added no false sequences ([user guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#trimming-poor-its-read-ends-amplitrim-trim)).
 
 ## Limits
 

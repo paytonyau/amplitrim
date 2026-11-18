@@ -27,7 +27,7 @@ def test_clean_its_reads_get_the_rule_measured_and_it_gives_2(reads, tmp_path):
     res, report, summary = run_its(reads, tmp_path)
     assert res.rule is not None and res.rule["max_ee"] == [2, 2] and res.rule["cut"] is None and not res.relaxed and res.trim_advice is None
     assert res.cfg.max_ee == 2.0 and "after DADA2's truncQ = 2 cut" in report and "both under 2" in report and "does not adjust it for ITS" not in report
-    assert "## Not advised for ITS" in report and "Raising `truncQ` above 2" in report and "## Trim the poor read ends first" not in report
+    assert "## Not advised for ITS" in report and "Raising `truncQ` above 2" in report and "DADA2 issue #1884" in report and "Trimming single-end" in report and "## Trim the poor read ends first" not in report
     assert summary["maxEE_rule"]["measured_on"] == "reads after the truncQ = 2 cut" and summary["maxEE_rule"]["computed_max_ee"] == [2, 2] and "trim_advice" not in summary
 
 
@@ -36,7 +36,7 @@ def test_noisy_its_reads_that_mostly_pass_get_maxee_computed_from_the_reads(tmp_
     res, report, summary = run_its(noisy, tmp_path)
     assert res.pass_rate_default == pytest.approx(0.6, abs=0.05) and res.trim_advice is None
     assert res.relaxed and res.cfg.max_ee == (2.0, 5.0) and res.rule["raw"] == [1, 5] and res.recommendation.ee_pass_rate > 0.95
-    assert "not DADA2's default of 2: after DADA2's truncQ = 2 cut" in report and "safe on three fungal mock communities" in report
+    assert "not DADA2's default of 2: after DADA2's truncQ = 2 cut" in report and "safe on four fungal mock communities" in report
     assert (summary["recommended"]["maxEE_f"], summary["recommended"]["maxEE_r"]) == (2.0, 5.0) and summary["maxEE_rule"]["relaxed"] is True
     assert "maxEE = 2,5" in " ".join(screen_summary(res, tmp_path / "REPORT.md"))
 
