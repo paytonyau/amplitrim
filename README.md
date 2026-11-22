@@ -3,6 +3,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/paytonyau/amplitrim/blob/main/LICENSE)
 [![Tests](https://github.com/paytonyau/amplitrim/actions/workflows/tests.yml/badge.svg)](https://github.com/paytonyau/amplitrim/actions/workflows/tests.yml)
+[![Downloads](https://static.pepy.tech/badge/amplitrim)](https://pepy.tech/projects/amplitrim)
 
 **Choose DADA2 truncation lengths and `maxEE` from your own reads.**
 
