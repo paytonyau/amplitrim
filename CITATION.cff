@@ -7,11 +7,9 @@ doi: "10.5281/zenodo.23860406"
 date-released: "2026-11-18"
 license: MIT
 repository-code: "https://github.com/paytonyau/amplitrim"
-doi: "10.5281/zenodo.23860406"
-date-released: "2026-11-18"
 abstract: >-
   AmpliTrim recommends DADA2 truncLenF, truncLenR and maxEE for paired-end amplicon reads and tests candidate settings on the user's own reads: it replicates DADA2's
-  quality filter from the quality scores, sets a coverage floor from the amplicon lengths, estimates the merge yield with vsearch, and chooses maxEE per read from the reads' expected errors. For ITS it computes maxEE the same way and advises trimming poor read ends with a sliding window when fewer than half the read pairs pass.
+  quality filter from the quality scores, sets a coverage floor from the amplicon lengths, estimates the merge yield with vsearch, and chooses maxEE per read from the reads' expected errors. For ITS it advises trimming the poor read ends with a sliding window before DADA2, keeps maxEE at 2 for the trimmed reads, and otherwise computes maxEE the same way.
 authors:
   - family-names: "Yau"
     given-names: "Payton (Tung On)"
