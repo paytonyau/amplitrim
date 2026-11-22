@@ -3,7 +3,10 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/paytonyau/amplitrim/blob/main/LICENSE)
 [![Tests](https://github.com/paytonyau/amplitrim/actions/workflows/tests.yml/badge.svg)](https://github.com/paytonyau/amplitrim/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/amplitrim.svg)](https://pypi.org/project/amplitrim/)
 [![Downloads](https://static.pepy.tech/badge/amplitrim)](https://pepy.tech/projects/amplitrim)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23860406.svg)](https://doi.org/10.5281/zenodo.23860406)
+[![Validation results](https://img.shields.io/badge/validation-results-blue.svg)](https://paytonyau.github.io/amplitrim-validation/)
 
 **Choose DADA2 truncation lengths and `maxEE` from your own reads.**
 
