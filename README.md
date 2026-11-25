@@ -38,23 +38,25 @@ We compared AmpliTrim with an existing automatic tool for choosing truncation le
 
 \* Wastewater is shown on its own. Its reads are noisy: it is the only real dataset in this comparison with poor read quality, an estimated 54% of its pairs pass DADA2's default filter, and the loss is to read quality, not to short reads (only 0.6% of its pairs are shorter than the cut). Its reads were also trimmed to mixed lengths, and every pair was in reverse orientation. It is the one case where the other tool was ahead: AmpliTrim chose a cut 6 nt longer, which cost about a point.
 
-Merging is a tie: only mock community B (+2.6) is beyond the 2-point margin we set in advance, and the two datasets used in development (mock A and soil V4) both tied. The gains are in the other rows.
+Merging is a tie: only Hülpüsch Mock B (+2.6) is beyond the 2-point margin we set in advance, and the two datasets used in development (Hülpüsch Mock A and Wheat Soil V4) both tied. The gains are in the other rows.
 
 <details>
 <summary>Per dataset: pairs merged by DADA2, AmpliTrim's cut minus the other tool's (points)</summary>
 
+Every dataset has one ID and one name, the same in the paper and on the [validation pages](https://github.com/paytonyau/amplitrim-validation/blob/main/docs/DATASET_NAMES.md).
+
 | Type | Dataset (16S) | Samples | Role | Difference |
 |---|---|---|---|---|
-| Real samples | V1-V2 real samples | 33 | held out | +1.1 |
-| Real samples | V4 soil | 36 | development | 0.0 |
-| Real samples | V3-V4 mouse gut with spike-ins | 12 | held out | +1.3 |
-| Real samples | V3-V4 surface swabs | 36 | held out | 0.0 |
-| Mock communities | V1-V3 mock community A | 6 | development | 0.0 |
-| Mock communities | V1-V2 inter-laboratory mock | 6 | held out | 0.0 |
-| Mock communities | V1-V3 mock community B | 8 | held out | +2.6 |
-| Mock communities | V4-V6 inter-laboratory mock | 5 | held out | +0.3 |
-| Mock communities | V3-V4 ZymoBIOMICS mock (D6300) | 10 | held out | 0.0 |
-| Wastewater | V3-V4 wastewater | 9 | held out | -1.0 |
+| Real samples | DS07 Human Gut V1-V2 | 33 | held out | +1.1 |
+| Real samples | DS08 Wheat Soil V4 | 36 | development | 0.0 |
+| Real samples | DS11 Mouse Gut Spike-Ins | 12 | held out | +1.3 |
+| Real samples | DS12 Surface Swabs | 36 | held out | 0.0 |
+| Mock communities | DS01 Hülpüsch Mock A | 6 | development | 0.0 |
+| Mock communities | DS03 Inter-Laboratory Mock V1-V2 | 6 | held out | 0.0 |
+| Mock communities | DS02 Hülpüsch Mock B | 8 | held out | +2.6 |
+| Mock communities | DS04 Inter-Laboratory Mock V4-V6 | 5 | held out | +0.3 |
+| Mock communities | DS05 D6300 V3-V4 | 10 | held out | 0.0 |
+| Wastewater | DS10 Wastewater V3-V4 | 9 | held out | -1.0 |
 
 </details>
 
@@ -126,7 +128,7 @@ Each read is cut before the first window of 4 bases whose mean quality is below 
 - **It is for DADA2.** QIIME 2's other denoiser, Deblur, uses different settings (one trim length for merged reads), which AmpliTrim does not recommend ([guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#what-amplitrim-recommends)).
 - **The yield is an optimistic estimate.** It is measured before DADA2 denoises the reads. Use it to compare settings, and run DADA2 once to confirm. For ITS it can be far too high: on the two ITS studies we tested, DADA2 merged 46.9% and 14.0% of the pairs where 72.4% and 82.1% were estimated.
 - **It checks quality and mergeability, not accuracy.**
-- **The trim was tested on Illumina MiSeq ITS1 and ITS2 mock communities only.** Its predicted pass rate matched DADA2 within 0.11 points on eleven ITS datasets; it does not help full-length ITS, whose pairs are lost at merging.
+- **The trim was tested on Illumina MiSeq ITS1 and ITS2 mock communities only.** Its predicted pass rate matched DADA2 within 0.11 points on twelve ITS datasets; it does not help full-length ITS, whose pairs are lost at merging.
 - **A tail of much longer amplicons** (for example non-target 18S) can force long, noisy reads. Only the longest 0.2% are set aside, so remove such reads first ([guide](https://github.com/paytonyau/amplitrim/blob/main/docs/usage.md#limitations)).
 
 ## Citation, licence and contributing

@@ -225,7 +225,7 @@ AmpliTrim chooses every setting from your reads, but you can set any of them; th
 | `--max-mismatch N` | `mergePairs(maxMismatch)` | 0 |
 | `--max-pairs N` | (the read pairs analysed) | 50,000 |
 | `--trim-window N`, `--trim-quality Q` | the trim AmpliTrim advises and predicts (with `--its`) | 4 and 15 |
-| `--trim-advice-below SHARE` | when the trim is advised (with `--its`) | 0.5 |
+| `--trim-advice-below SHARE` | when the trim is advised (with `--its`): below this share of pairs passing at maxEE 2,2; 1 means always, 0.5 is the rule of 0.3 | 1 |
 
 What the validation found at other values (sections 26 to 44), which the report repeats when you choose them: `truncQ` 3 to 6 changed nothing on the data tested, 7 was safe there but is not advised (DADA2's authors advise against `truncQ`, because the length variation lowers DADA2's sensitivity; DADA2 issue #1884), and 8 and above lost true members; `minLen` 20 and 100 were safe and 150 lost short amplicons; `maxMismatch` above 0 let false sequences through on ITS; of twelve trims, window 4 at mean quality 15 kept the most pairs while staying safe. AmpliTrim's predictions were checked against DADA2 at all of these values (one setting changed at a time). The trim is not advised for single-end (forward-only) reads.
 
@@ -248,7 +248,7 @@ Then run DADA2 on the trimmed files with the settings of the report (no truncati
 - **Reads of mixed lengths** cost pairs: DADA2 discards reads shorter than `truncLen`, and the report says how many. On two validation datasets with trimmed reads, no fixed truncation merged more pairs than the recommended cut.
 - **It needs overlap and clean input:** primers and adapters removed, the forward read as R1, no quality trimming (see Input).
 - **Validated on Illumina MiSeq and NovaSeq data only;** other platforms are untested.
-- **ITS trim:** tested on ITS1 and ITS2 mock communities sequenced on MiSeq (2×195 to 2×300 nt); its predicted pass rate in the report was checked against DADA2 on eleven ITS datasets (the largest difference 0.11 points), and it does not help full-length ITS, whose pairs are lost at merging, not at the filter.
+- **ITS trim:** tested on ITS1 and ITS2 mock communities sequenced on MiSeq (2×195 to 2×300 nt); its predicted pass rate in the report was checked against DADA2 on twelve ITS datasets (the largest difference 0.11 points), and it does not help full-length ITS, whose pairs are lost at merging, not at the filter.
 
 ## Development
 
